@@ -55,16 +55,23 @@ st.markdown("""
     .match-card { background-color: #1a233a; padding: 20px; border-radius: 15px; border: 1px solid #2d3748; margin-bottom: 15px; box-shadow: 0 4px 12px rgba(0,0,0,0.2); }
     .match-header { font-size: 0.75em; color: #a0aec0; text-align: center; margin-bottom: 10px; text-transform: uppercase; letter-spacing: 1px; }
     .team-name { font-size: 1.1em; font-weight: bold; }
+    
+    /* Configuración de botones en general */
     div.stButton > button:first-child { background-color: #00e676 !important; color: #0b101e !important; border-radius: 25px; font-weight: bold; width: 100%; border: none; padding: 10px; transition: 0.3s; }
     div.stButton > button:first-child:hover { background-color: #00c853 !important; transform: scale(1.02); }
+    
+    /* 🔥 REGLAS PARA CENTRAR OPCIONES DE APUESTA (RADIO BUTTONS) 🔥 */
+    div.stRadio > div[role="radiogroup"] {
+        justify-content: center !important;
+        margin: 0 auto !important;
+        width: 100% !important;
+    }
+    
     .podium-gold { background: linear-gradient(135deg, #FFD700, #FDB931); color: #000; padding: 15px; border-radius: 15px; text-align: center; margin-bottom: 10px; }
     .podium-silver { background: linear-gradient(135deg, #C0C0C0, #8E8E8E); color: #000; padding: 10px; border-radius: 15px; text-align: center; }
     .podium-bronze { background: linear-gradient(135deg, #CD7F32, #8B4513); color: #fff; padding: 10px; border-radius: 15px; text-align: center; }
     .login-container { background-color: #161e31; padding: 40px; border-radius: 20px; text-align: center; border: 1px solid #2d3748; }
     [data-testid="stDataFrameToolbar"], #MainMenu, footer { display: none !important; }
-    
-    /* Centrar los botones de radio (opciones de apuesta) */
-    div[role="radiogroup"] { justify-content: center !important; }
     </style>
     """, unsafe_allow_html=True)
 
@@ -181,12 +188,19 @@ with tabs[0]:
                     elif p['Id'] in votos:
                         st.info(f"✅ Tu pronóstico guardado: **{votos[p['Id']]}**")
                     elif fecha > datetime.now(timezone.utc):
+                        # Las opciones de apuesta (se centrarán gracias al CSS añadido)
                         pred = st.radio("Voto:", [p['Equipo_local'], 'Empate', p['Equipo_visitante']], key=f"r_{p['Id']}", horizontal=True, label_visibility="collapsed")
                         valor_bd = 'X' if pred == 'Empate' else pred 
-                        if st.button("Confirmar", key=f"b_{p['Id']}"):
-                            # upsert asegura que si vuelve a votar, se actualiza el voto
-                            supabase.table("Porras").upsert({"Id_usuario": st.session_state["Id_usuario"], "Id_partido": p["Id"], "Prediccion": valor_bd}).execute()
-                            st.rerun()
+                        
+                        st.write("") # Pequeño margen
+                        
+                        # 🔥 BOTÓN CONFIRMAR CENTRADO EN COLUMNAS 🔥
+                        _, col_btn, _ = st.columns([1, 2, 1])
+                        with col_btn:
+                            if st.button("Confirmar", key=f"b_{p['Id']}"):
+                                # upsert asegura que si vuelve a votar, se actualiza el voto
+                                supabase.table("Porras").upsert({"Id_usuario": st.session_state["Id_usuario"], "Id_partido": p["Id"], "Prediccion": valor_bd}).execute()
+                                st.rerun()
                     else: 
                         st.warning("🔒 Partido cerrado. Esperando resultado.")
                     st.markdown("</div>", unsafe_allow_html=True)
