@@ -15,17 +15,35 @@ except:
 supabase: Client = create_client(URL, KEY)
 
 BANDERAS = {
-    "México": "mx", "Sudáfrica": "za", "Corea del Sur": "kr", "Canadá": "ca",
-    "Estados Unidos": "us", "Paraguay": "py", "Catar": "qa", "Suiza": "ch",
+    # Grupo A
+    "México": "mx", "Sudáfrica": "za", "Corea del Sur": "kr", "República Checa": "cz",
+    # Grupo B
+    "Canadá": "ca", "Bosnia y Herzegovina": "ba", "Catar": "qa", "Suiza": "ch",
+    # Grupo C
     "Brasil": "br", "Marruecos": "ma", "Haití": "ht", "Escocia": "gb-sct",
-    "Australia": "au", "Alemania": "de", "Curazao": "cw", "Países Bajos": "nl",
-    "Japón": "jp", "Costa de Marfil": "ci", "Ecuador": "ec", "Túnez": "tn",
-    "España": "es", "Cabo Verde": "cv", "Bélgica": "be", "Egipto": "eg",
-    "Arabia Saudí": "sa", "Uruguay": "uy", "Irán": "ir", "Nueva Zelanda": "nz",
-    "Francia": "fr", "Senegal": "sn", "Noruega": "no", "Argentina": "ar",
-    "Argelia": "dz", "Austria": "at", "Jordania": "jo", "Portugal": "pt",
+    # Grupo D
+    "Estados Unidos": "us", "Paraguay": "py", "Australia": "au", "Turquía": "tr",
+    # Grupo E
+    "Alemania": "de", "Curaçao": "cw", "Costa de Marfil": "ci", "Ecuador": "ec",
+    # Grupo F
+    "Países Bajos": "nl", "Japón": "jp", "Suecia": "se", "Túnez": "tn",
+    # Grupo G
+    "Bélgica": "be", "Egipto": "eg", "Irán": "ir", "Nueva Zelanda": "nz",
+    # Grupo H
+    "España": "es", "Cabo Verde": "cv", "Arabia Saudí": "sa", "Uruguay": "uy",
+    # Grupo I
+    "Francia": "fr", "Senegal": "sn", "Irak": "iq", "Noruega": "no",
+    # Grupo J
+    "Argentina": "ar", "Argelia": "dz", "Austria": "at", "Jordania": "jo",
+    # Grupo K
+    "Portugal": "pt", "RD Congo": "cd", "Uzbekistán": "uz", "Colombia": "co",
+    # Grupo L
     "Inglaterra": "gb-eng", "Croacia": "hr", "Ghana": "gh", "Panamá": "pa",
-    "Uzbekistán": "uz", "Colombia": "co"
+    
+    # Algunas de repuesto por si acaso
+    "Italia": "it", "Chile": "cl", "Perú": "pe", "Bolivia": "bo", "Venezuela": "ve",
+    "Polonia": "pl", "Dinamarca": "dk", "Serbia": "rs", "Gales": "gb-wls", "Ucrania": "ua",
+    "Nigeria": "ng", "Camerún": "cm", "Jamaica": "jm", "Costa Rica": "cr", "Grecia": "gr"
 }
 
 # --- 2. CONFIGURACIÓN Y ESTILOS CSS ---
