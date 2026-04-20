@@ -9,7 +9,7 @@ try:
     KEY = st.secrets["SUPABASE_KEY"]
 except:
     URL = "https://ipzbkimkrckwrxisdisr.supabase.co"
-    KEY = "sb_secret_VoCodXzjNBG8nYBwMS8ZBA_IMQo--_V" # Si vas a probar en local, pon tu clave aquí temporalmente
+    KEY = "sb_secret_VoCodXzjNBG8nYBwMS8ZBA_IMQo--_V" 
 
 supabase: Client = create_client(URL, KEY)
 
@@ -41,17 +41,12 @@ st.markdown("""
     .match-header { font-size: 0.75em; color: #a0aec0; text-align: center; margin-bottom: 10px; text-transform: uppercase; letter-spacing: 1px; }
     .team-name { font-size: 1.1em; font-weight: bold; }
     
-    /* Configuración de botones en general */
+    /* Configuración de botones */
     div.stButton > button:first-child { background-color: #00e676 !important; color: #0b101e !important; border-radius: 25px; font-weight: bold; width: 100%; border: none; padding: 10px; transition: 0.3s; }
     div.stButton > button:first-child:hover { background-color: #00c853 !important; transform: scale(1.02); }
     
-    /* 🔥 REGLA AGRESIVA PARA CENTRAR OPCIONES DE APUESTA 🔥 */
-    [data-testid="stRadio"] > div[role="radiogroup"] {
-        display: flex !important;
-        justify-content: center !important;
-        align-items: center !important;
-        width: 100% !important;
-    }
+    /* Forzar que los radio buttons se distribuyan mejor dentro de su columna */
+    [data-testid="stRadio"] > div { justify-content: center !important; }
     
     .podium-gold { background: linear-gradient(135deg, #FFD700, #FDB931); color: #000; padding: 15px; border-radius: 15px; text-align: center; margin-bottom: 10px; }
     .podium-silver { background: linear-gradient(135deg, #C0C0C0, #8E8E8E); color: #000; padding: 10px; border-radius: 15px; text-align: center; }
@@ -92,7 +87,7 @@ if "Id_usuario" not in st.session_state:
         st.markdown("</div>", unsafe_allow_html=True)
     st.stop()
 
-# --- 4. VERIFICACIÓN DE PAGO (Bloqueo por Bizum) ---
+# --- 4. VERIFICACIÓN DE PAGO ---
 if st.session_state.get("Estado") == "Pendiente":
     st.title("⚽ Cuenta Pendiente")
     st.warning(f"Hola {st.session_state['Nombre']}, tu cuenta aún no ha sido activada.")
@@ -107,7 +102,6 @@ if st.session_state.get("Estado") == "Pendiente":
 partidos_raw = supabase.table("Partidos").select("*").order("Fecha_hora").execute().data
 todos_usuarios = supabase.table("Usuarios").select("Id, Nombre, Puntos").order("Puntos", desc=True).execute().data
 
-# Agrupar fases
 for p in partidos_raw:
     p["Fase_Visual"] = "Fase de Grupos" if "Grupo" in p["Fase"] else p["Fase"]
 
@@ -115,7 +109,6 @@ orden_fases = ["Fase de Grupos", "Dieciseisavos", "Octavos", "Cuartos", "Semifin
 fases_existentes = sorted(list(set(p["Fase_Visual"] for p in partidos_raw)), 
                           key=lambda x: orden_fases.index(x) if x in orden_fases else 99)
 
-# Sidebar (Menú lateral)
 with st.sidebar:
     st.markdown(f"<h2 style='text-align: center;'>👤 {st.session_state['Nombre']}</h2>", unsafe_allow_html=True)
     res_yo = [u for u in todos_usuarios if u['Id'] == st.session_state['Id_usuario']]
@@ -135,7 +128,6 @@ ADMIN_NOMBRE = "AGS"
 es_admin = st.session_state["Nombre"] == ADMIN_NOMBRE
 tabs = st.tabs(["📅 Partidos", "🏆 Ranking", "⚙️ Admin" if es_admin else "📜 Reglas"])
 
-# --- TAB 1: PARTIDOS ---
 with tabs[0]:
     if not partidos_raw:
         st.info("No hay partidos cargados en la base de datos.")
@@ -147,7 +139,10 @@ with tabs[0]:
             with sub_tabs[i]:
                 partidos_fase = [p for p in partidos_raw if p["Fase_Visual"] == fase_tab]
                 for p in partidos_fase:
+                    # Inicio de la Tarjeta del Partido
                     st.markdown("<div class='match-card'>", unsafe_allow_html=True)
+                    
+                    # 1. MARCADOR Y EQUIPOS
                     fecha = datetime.fromisoformat(p['Fecha_hora'])
                     st.markdown(f"<div class='match-header'>{p['Fase']} | {fecha.strftime('%d/%m %H:%M')}h</div>", unsafe_allow_html=True)
                     
@@ -162,37 +157,48 @@ with tabs[0]:
                         iso_v = BANDERAS.get(p['Equipo_visitante'], "un")
                         st.markdown(f"<div style='text-align: left;'><img src='https://flagcdn.com/32x24/{iso_v}.png' style='border-radius:3px;'> <span class='team-name'>{p['Equipo_visitante']}</span></div>", unsafe_allow_html=True)
                     
-                    st.write("") # Espaciador
+                    # Línea separadora sutil para el contenedor de apuestas
+                    st.markdown("<hr style='margin: 15px 0px 15px 0px; border: none; border-top: 1px solid #2d3748;'>", unsafe_allow_html=True)
                     
-                    # Lógica de apuesta
+                    # 2. SECCIÓN DE APUESTAS (ESTRUCTURA DE COLUMNAS PARA FORZAR EL CENTRADO)
                     if p.get('Resultado_real'):
-                        if p['Id'] in votos:
-                            if votos[p['Id']] == p['Resultado_real']: st.success(f"🎯 Acertaste el resultado: {votos[p['Id']]}")
-                            else: st.error(f"❌ Fallaste. Tu apuesta: {votos[p['Id']]}")
-                        else:
-                            st.write("<div style='text-align: center; color: gray;'>No apostaste a este partido</div>", unsafe_allow_html=True)
+                        # Mostrar resultado final si el partido acabó
+                        st.write("")
+                        _, col_res, _ = st.columns([1, 4, 1])
+                        with col_res:
+                            if p['Id'] in votos:
+                                if votos[p['Id']] == p['Resultado_real']: st.success(f"🎯 Acertaste el resultado: {votos[p['Id']]}")
+                                else: st.error(f"❌ Fallaste. Tu apuesta: {votos[p['Id']]}")
+                            else:
+                                st.markdown("<div style='text-align: center; color: gray;'>No apostaste a este partido</div>", unsafe_allow_html=True)
+                                
                     elif p['Id'] in votos:
-                        st.info(f"✅ Tu pronóstico guardado: **{votos[p['Id']]}**")
+                        # Ya votó pero no hay resultado final
+                        st.write("")
+                        _, col_res, _ = st.columns([1, 4, 1])
+                        with col_res:
+                            st.info(f"✅ Tu pronóstico guardado: **{votos[p['Id']]}**")
+                            
                     elif fecha > datetime.now(timezone.utc):
+                        # 2.1 CONTENEDOR RADIO BUTTONS (Centrado)
+                        col_r_izq, col_r_cen, col_r_der = st.columns([1, 6, 1])
+                        with col_r_cen:
+                            pred = st.radio("Voto:", [p['Equipo_local'], 'Empate', p['Equipo_visitante']], key=f"r_{p['Id']}", horizontal=True, label_visibility="collapsed")
+                            valor_bd = 'X' if pred == 'Empate' else pred 
+                            
+                        st.write("") # Pequeño salto
                         
-                        # Las opciones de apuesta (se centrarán gracias al nuevo CSS agresivo)
-                        pred = st.radio("Voto:", [p['Equipo_local'], 'Empate', p['Equipo_visitante']], key=f"r_{p['Id']}", horizontal=True, label_visibility="collapsed")
-                        valor_bd = 'X' if pred == 'Empate' else pred 
-                        
-                        st.write("") # Pequeño margen
-                        
-                        # 🔥 BOTÓN CONFIRMAR CENTRADO ABSOLUTO 🔥
-                        # Dividimos en 3 tercios iguales: [1, 1, 1]. El botón se encaja en el del centro.
-                        _, col_btn, _ = st.columns([1, 1, 1])
-                        with col_btn:
+                        # 2.2 CONTENEDOR BOTÓN CONFIRMAR (Centrado)
+                        col_b_izq, col_b_cen, col_b_der = st.columns([1, 2, 1])
+                        with col_b_cen:
                             if st.button("Confirmar", key=f"b_{p['Id']}"):
                                 supabase.table("Porras").upsert({"Id_usuario": st.session_state["Id_usuario"], "Id_partido": p["Id"], "Prediccion": valor_bd}).execute()
                                 st.rerun()
                     else: 
                         st.warning("🔒 Partido cerrado. Esperando resultado.")
+                        
                     st.markdown("</div>", unsafe_allow_html=True)
 
-# --- TAB 2: RANKING ---
 with tabs[1]:
     if not todos_usuarios:
         st.info("Aún no hay usuarios registrados.")
@@ -221,7 +227,6 @@ with tabs[1]:
         st.dataframe(df[['Jugador', 'Puntos', 'Nombre']].style.apply(style_row, axis=1), use_container_width=True, hide_index=True,
                      column_config={"Jugador": "Jugador", "Puntos": st.column_config.ProgressColumn("Pts", format="%d", min_value=0, max_value=max_p), "Nombre": None})
 
-# --- TAB 3: ADMIN / REGLAS ---
 if es_admin:
     with tabs[2]:
         st.subheader("🛠️ Panel de Control")
