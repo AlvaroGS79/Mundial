@@ -10,7 +10,7 @@ try:
     KEY = st.secrets["SUPABASE_KEY"]
 except:
     URL = "https://ipzbkimkrckwrxisdisr.supabase.co"
-    KEY = "TU_KEY_AQUI" # Si vas a probar en local, pon tu clave aquí temporalmente
+    KEY = "sb_secret_VoCodXzjNBG8nYBwMS8ZBA_IMQo--_V" # Si vas a probar en local, pon tu clave aquí temporalmente
 
 supabase: Client = create_client(URL, KEY)
 
