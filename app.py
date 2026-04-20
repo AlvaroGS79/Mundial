@@ -180,7 +180,7 @@ with tabs[0]:
                     elif fecha > datetime.now(timezone.utc):
                         pred = st.radio("Voto:", [p['Equipo_local'], 'Empate', p['Equipo_visitante']], key=f"r_{p['Id']}", horizontal=True, label_visibility="collapsed")
                         valor_bd = 'X' if pred == 'Empate' else pred 
-                        if st.button("Confirmar Apuesta", key=f"b_{p['Id']}"):
+                        if st.button("Confirmar", key=f"b_{p['Id']}"):
                             # upsert asegura que si vuelve a votar, se actualiza el voto
                             supabase.table("Porras").upsert({"Id_usuario": st.session_state["Id_usuario"], "Id_partido": p["Id"], "Prediccion": valor_bd}).execute()
                             st.rerun()
