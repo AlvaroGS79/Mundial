@@ -62,6 +62,9 @@ st.markdown("""
     .podium-bronze { background: linear-gradient(135deg, #CD7F32, #8B4513); color: #fff; padding: 10px; border-radius: 15px; text-align: center; }
     .login-container { background-color: #161e31; padding: 40px; border-radius: 20px; text-align: center; border: 1px solid #2d3748; }
     [data-testid="stDataFrameToolbar"], #MainMenu, footer { display: none !important; }
+    
+    /* Centrar los botones de radio (opciones de apuesta) */
+    div[role="radiogroup"] { justify-content: center !important; }
     </style>
     """, unsafe_allow_html=True)
 
@@ -100,7 +103,7 @@ if "Id_usuario" not in st.session_state:
 if st.session_state.get("Estado") == "Pendiente":
     st.title("⚽ Cuenta Pendiente")
     st.warning(f"Hola {st.session_state['Nombre']}, tu cuenta aún no ha sido activada.")
-    st.info("Para participar en la porra, envía tu aportación de **5€ por Bizum al 6XX XXX XXX** indicando tu nombre. Una vez enviado, el administrador te dará acceso.")
+    st.info("Para participar en la porra, envía tu aportación de 20€ por Bizum al 6XX XXX XXX indicando tu nombre. Una vez enviado, el administrador te dará acceso.")
     if st.button("🔄 Ya he pagado, comprobar acceso"):
         res = supabase.table("Usuarios").select("Estado").eq("Id", st.session_state["Id_usuario"]).execute()
         st.session_state["Estado"] = res.data[0]["Estado"]
@@ -168,7 +171,7 @@ with tabs[0]:
                     
                     st.write("") # Espaciador
                     
-                    # Lógica de apuesta (AQUÍ ESTÁ CORREGIDA LA ZONA HORARIA)
+                    # Lógica de apuesta
                     if p.get('Resultado_real'):
                         if p['Id'] in votos:
                             if votos[p['Id']] == p['Resultado_real']: st.success(f"🎯 Acertaste el resultado: {votos[p['Id']]}")
@@ -180,7 +183,7 @@ with tabs[0]:
                     elif fecha > datetime.now(timezone.utc):
                         pred = st.radio("Voto:", [p['Equipo_local'], 'Empate', p['Equipo_visitante']], key=f"r_{p['Id']}", horizontal=True, label_visibility="collapsed")
                         valor_bd = 'X' if pred == 'Empate' else pred 
-                        if st.button("Confirmar Apuesta", key=f"b_{p['Id']}"):
+                        if st.button("Confirmar", key=f"b_{p['Id']}"):
                             # upsert asegura que si vuelve a votar, se actualiza el voto
                             supabase.table("Porras").upsert({"Id_usuario": st.session_state["Id_usuario"], "Id_partido": p["Id"], "Prediccion": valor_bd}).execute()
                             st.rerun()
@@ -222,7 +225,7 @@ if es_admin:
     with tabs[2]:
         st.subheader("🛠️ Panel de Control")
         
-        # 1. Cerrar partidos (CORRECCIÓN ZONA HORARIA APLICADA AQUÍ)
+        # 1. Cerrar partidos
         st.markdown("#### ⚽ Actualizar Resultados")
         p_pend = [p for p in partidos_raw if not p.get('Resultado_real') and datetime.fromisoformat(p['Fecha_hora']) < datetime.now(timezone.utc)]
         if p_pend:
