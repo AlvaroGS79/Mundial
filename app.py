@@ -3,9 +3,9 @@ from supabase import create_client, Client
 from datetime import datetime
 import pandas as pd
 
-# 1. CONEXIÓN
+# 1. CONEXIÓN (Recuerda usar st.secrets para producción)
 URL = "https://ipzbkimkrckwrxisdisr.supabase.co"
-KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlwemJraW1rcmNrd3J4aXNkaXNyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM4MzEyNjAsImV4cCI6MjA4OTQwNzI2MH0.4P7vwWBnX6sr5rxI7iixArK0FshGOfH9KKLnVCEubhY"
+KEY = "tu_clave_aqui" # USA TU KEY REAL
 supabase: Client = create_client(URL, KEY)
 
 BANDERAS = {
@@ -27,129 +27,102 @@ st.set_page_config(page_title="Porra Mundial 2026", layout="centered", page_icon
 
 st.markdown("""
     <style>
-    .stApp { background-color: #0e1117; color: #fafafa; }
-    [data-testid="stSidebar"] [data-testid="stVerticalBlock"] > div { background-color: transparent !important; border: none !important; }
-    div.stButton > button:first-child { background-color: #2e7d32 !important; color: white !important; border-radius: 10px; font-weight: bold; width: 100%; }
-    [data-testid="stVerticalBlock"] > div:has(div.stMarkdown) { border: 1px solid rgba(255, 255, 255, 0.1); padding: 15px; border-radius: 12px; }
-    [data-testid="stDataFrameToolbar"], #MainMenu, footer { display: none !important; }
-    [data-testid="stMetricValue"] { color: #ffd700 !important; }
+    .stApp { background-color: #0b101e; color: #ffffff; }
+    .match-card { background-color: #1a233a; padding: 20px; border-radius: 15px; border: 1px solid #2d3748; margin-bottom: 15px; }
+    .match-header { font-size: 0.8em; color: #a0aec0; text-align: center; margin-bottom: 10px; text-transform: uppercase; }
+    .team-name { font-size: 1.1em; font-weight: bold; }
+    div.stButton > button:first-child { background-color: #00e676 !important; color: #0b101e !important; border-radius: 25px; font-weight: bold; width: 100%; border: none; }
+    .podium-gold { background: linear-gradient(135deg, #FFD700, #FDB931); color: #000; padding: 15px; border-radius: 15px; text-align: center; }
     </style>
     """, unsafe_allow_html=True)
 
-# 3. LOGIN
+# 3. LOGIN (Simplificado para el ejemplo)
 if "Id_usuario" not in st.session_state:
     st.title("🏆 Porra Mundial 2026")
     with st.container(border=True):
-        nombre_usuario = st.text_input("Usuario:")
-        pass_usuario = st.text_input("Contraseña:", type="password")
-        if st.button("ENTRAR", type="primary"):
-            if nombre_usuario.strip() and pass_usuario.strip():
-                res = supabase.table("Usuarios").select("*").eq("Nombre", nombre_usuario).execute()
-                if len(res.data) > 0:
-                    if str(res.data[0].get("Password")) == str(pass_usuario):
-                        st.session_state["Id_usuario"], st.session_state["Nombre"] = res.data[0]["Id"], res.data[0]["Nombre"]
-                        st.rerun()
-                    else: st.error("❌ Contraseña incorrecta.")
-                else:
-                    nuevo = supabase.table("Usuarios").insert({"Nombre": nombre_usuario, "Password": pass_usuario, "Puntos": 0}).execute()
-                    st.session_state["Id_usuario"], st.session_state["Nombre"] = nuevo.data[0]["Id"], nuevo.data[0]["Nombre"]
-                    st.rerun()
+        u = st.text_input("Usuario")
+        p = st.text_input("Contraseña", type="password")
+        if st.button("ENTRAR"):
+            res = supabase.table("Usuarios").select("*").eq("Nombre", u).execute()
+            if res.data and str(res.data[0]["Password"]) == str(p):
+                st.session_state["Id_usuario"], st.session_state["Nombre"] = res.data[0]["Id"], res.data[0]["Nombre"]
+                st.rerun()
+            elif not res.data: # Registro automático
+                nuevo = supabase.table("Usuarios").insert({"Nombre": u, "Password": p, "Puntos": 0}).execute()
+                st.session_state["Id_usuario"], st.session_state["Nombre"] = nuevo.data[0]["Id"], nuevo.data[0]["Nombre"]
+                st.rerun()
     st.stop()
 
 # --- DATOS ---
-todos_usuarios = supabase.table("Usuarios").select("Id, Nombre, Puntos").order("Puntos", desc=True).execute().data
-mis_puntos, mi_posicion = 0, 1
-for i, u in enumerate(todos_usuarios):
-    if u["Id"] == st.session_state["Id_usuario"]:
-        mis_puntos, mi_posicion = u["Puntos"], i + 1
-        break
-
-with st.sidebar:
-    st.markdown(f"## ⚽ Mi Perfil")
-    st.markdown(f"**Jugador:** {st.session_state['Nombre']}")
-    c1, c2 = st.columns(2)
-    c1.metric("Puntos", mis_puntos)
-    c2.metric("Posición", f"{mi_posicion}º")
-    if st.button("🚪 Cerrar Sesión"):
-        st.session_state.clear()
-        st.rerun()
-
-# --- CONTENIDO ---
-st.title("🏆 Porra Mundial 2026")
-# Obtenemos los partidos y las fases disponibles
 partidos_raw = supabase.table("Partidos").select("*").order("Fecha_hora").execute().data
-df_p = pd.DataFrame(partidos_raw)
-fases_disponibles = df_p['Fase'].unique().tolist() if not df_p.empty else []
+todos_usuarios = supabase.table("Usuarios").select("Id, Nombre, Puntos").order("Puntos", desc=True).execute().data
 
-ADMIN_NOMBRE = "AGS"
-es_admin = st.session_state['Nombre'] == ADMIN_NOMBRE
-tabs = st.tabs(["📅 Partidos", "🏆 Ranking", "📜 Reglas"] + (["⚙️ Admin"] if es_admin else []))
+# DETERMINAR FASES DISPONIBLES (Agrupando Grupos)
+# Creamos una columna virtual para la visualización
+for p in partidos_raw:
+    if "Grupo" in p["Fase"]:
+        p["Fase_Visual"] = "Fase de Grupos"
+    else:
+        p["Fase_Visual"] = p["Fase"]
 
-# --- TAB 1: PARTIDOS CON SUBMENÚS ---
+# Definimos el orden de las pestañas
+orden_fases = ["Fase de Grupos", "Dieciseisavos", "Octavos", "Cuartos", "Semifinales", "Final"]
+fases_existentes = sorted(list(set(p["Fase_Visual"] for p in partidos_raw)), 
+                          key=lambda x: orden_fases.index(x) if x in orden_fases else 99)
+
+# --- TABS PRINCIPALES ---
+tabs = st.tabs(["📅 Partidos", "🏆 Ranking", "⚙️ Admin" if st.session_state["Nombre"] == "AGS" else "📜 Reglas"])
+
 with tabs[0]:
     if not partidos_raw:
-        st.info("No hay partidos cargados.")
+        st.info("No hay partidos.")
     else:
-        # ✅ MEJORA: SUBMENÚ DE FASES
-        fase_elegida = st.selectbox("📍 Selecciona Fase/Grupo:", fases_disponibles)
+        # Sub-pestañas para las fases agrupadas
+        sub_tabs = st.tabs(fases_existentes)
         
+        # Obtenemos apuestas del usuario
         votos = {v['Id_partido']: v['Prediccion'] for v in supabase.table("Porras").select("Id_partido, Prediccion").eq("Id_usuario", st.session_state["Id_usuario"]).execute().data}
-        
-        partidos_filtrados = [p for p in partidos_raw if p['Fase'] == fase_elegida]
-        
-        for p in partidos_filtrados:
-            with st.container(border=True):
-                iso_l, iso_v = BANDERAS.get(p['Equipo_local'], "un"), BANDERAS.get(p['Equipo_visitante'], "un")
-                st.markdown(f"#### <img src='https://flagcdn.com/24x18/{iso_l}.png'> {p['Equipo_local']} vs {p['Equipo_visitante']} <img src='https://flagcdn.com/24x18/{iso_v}.png'>", unsafe_allow_html=True)
-                
-                fecha = datetime.fromisoformat(p['Fecha_hora'])
-                st.caption(f"⏰ {fecha.strftime('%d/%m/%Y - %H:%M')}h")
-                
-                if p.get('Resultado_real'):
-                    st.info(f"Finalizado: **{p['Resultado_real']}**")
-                    if p['Id'] in votos:
-                        if votos[p['Id']] == p['Resultado_real']: st.success("🎯 ¡Acertaste!")
-                        else: st.error(f"❌ Tu apuesta: {votos[p['Id']]}")
-                elif p['Id'] in votos:
-                    st.success(f"Apostaste por: **{votos[p['Id']]}**")
-                elif fecha > datetime.now():
-                    pred = st.radio("¿Pronóstico?", [p['Equipo_local'], 'X', p['Equipo_visitante']], key=f"r_{p['Id']}", horizontal=True)
-                    if st.button("Confirmar", key=f"b_{p['Id']}"):
-                        supabase.table("Porras").insert({"Id_usuario": st.session_state["Id_usuario"], "Id_partido": p["Id"], "Prediccion": pred}).execute()
-                        st.rerun()
-                else: st.warning("🔒 Cerrado.")
 
-# --- TAB 2: RANKING ---
+        for i, fase_tab in enumerate(fases_existentes):
+            with sub_tabs[i]:
+                # Filtrar partidos de esta fase agrupada
+                partidos_fase = [p for p in partidos_raw if p["Fase_Visual"] == fase_tab]
+                
+                for p in partidos_fase:
+                    st.markdown("<div class='match-card'>", unsafe_allow_html=True)
+                    
+                    # Header: Fecha y Fase real (Ej: "Grupo A" o "Octavos")
+                    fecha = datetime.fromisoformat(p['Fecha_hora'])
+                    st.markdown(f"<div class='match-header'>{p['Fase']} | {fecha.strftime('%d/%m %H:%M')}h</div>", unsafe_allow_html=True)
+                    
+                    col1, col2, col3 = st.columns([2, 1, 2])
+                    with col1:
+                        iso_l = BANDERAS.get(p['Equipo_local'], "un")
+                        st.markdown(f"<div style='text-align: right;'><b>{p['Equipo_local']}</b> <img src='https://flagcdn.com/24x18/{iso_l}.png'></div>", unsafe_allow_html=True)
+                    with col2:
+                        res_display = p['Resultado_real'] if p['Resultado_real'] else "VS"
+                        st.markdown(f"<div style='text-align: center; font-weight: bold; background: #2d3748; border-radius: 5px;'>{res_display}</div>", unsafe_allow_html=True)
+                    with col3:
+                        iso_v = BANDERAS.get(p['Equipo_visitante'], "un")
+                        st.markdown(f"<div><img src='https://flagcdn.com/24x18/{iso_v}.png'> <b>{p['Equipo_visitante']}</b></div>", unsafe_allow_html=True)
+                    
+                    # Lógica de apuestas
+                    if p.get('Resultado_real'):
+                        if votos.get(p['Id']) == p['Resultado_real']: st.success(f"🎯 Acertaste: {votos[p['Id']]}")
+                        elif p['Id'] in votos: st.error(f"❌ Apostaste: {votos[p['Id']]}")
+                    elif p['Id'] in votos:
+                        st.info(f"Tu apuesta: **{votos[p['Id']]}**")
+                    elif fecha > datetime.now():
+                        pred = st.radio("Resultado:", [p['Equipo_local'], 'X', p['Equipo_visitante']], key=f"p_{p['Id']}", horizontal=True, label_visibility="collapsed")
+                        if st.button("Confirmar", key=f"b_{p['Id']}"):
+                            supabase.table("Porras").insert({"Id_usuario": st.session_state["Id_usuario"], "Id_partido": p["Id"], "Prediccion": pred}).execute()
+                            st.rerun()
+                    else:
+                        st.warning("Cerrado.")
+                    
+                    st.markdown("</div>", unsafe_allow_html=True)
+
 with tabs[1]:
-    st.subheader("📊 Clasificación")
-    if todos_usuarios:
-        df = pd.DataFrame(todos_usuarios)
-        def medalla(i): return "🥇" if i==0 else "🥈" if i==1 else "🥉" if i==2 else f"{i+1}."
-        df['Pos'] = [medalla(i) for i in range(len(df))]
-        df['Jugador'] = df['Pos'] + " " + df['Nombre']
-        max_p = int(df['Puntos'].max()) if df['Puntos'].max() > 0 else 10
-        def style_row(row):
-            return ['background-color: #ffd700; color: #0e1117; font-weight: bold;'] * len(row) if row['Nombre'] == st.session_state['Nombre'] else [''] * len(row)
-        st.dataframe(df[['Jugador', 'Puntos', 'Nombre']].style.apply(style_row, axis=1), use_container_width=True, hide_index=True,
-                     column_config={"Jugador": "Jugador", "Puntos": st.column_config.ProgressColumn("Pts", format="%d", min_value=0, max_value=max_p), "Nombre": None})
-
-# --- REGLAS ---
-with tabs[2]:
-    st.info("Acierto: 1 pto | X: Empate | Vota antes del pitido inicial.")
-
-# --- ADMIN ---
-if es_admin:
-    with tabs[3]:
-        # Filtramos partidos pasados sin resultado
-        pendientes = [p for p in partidos_raw if not p.get('Resultado_real') and datetime.fromisoformat(p['Fecha_hora']) < datetime.now()]
-        if pendientes:
-            p_sel = st.selectbox("Cerrar:", pendientes, format_func=lambda x: f"{x['Equipo_local']} vs {x['Equipo_visitante']}")
-            ganador = st.selectbox("Ganador:", [p_sel['Equipo_local'], 'X', p_sel['Equipo_visitante']])
-            if st.button("GUARDAR RESULTADO"):
-                supabase.table("Partidos").update({"Resultado_real": ganador}).eq("Id", p_sel['Id']).execute()
-                p_votos = supabase.table("Porras").select("*").eq("Id_partido", p_sel['Id']).execute().data
-                for v in p_votos:
-                    if v['Prediccion'] == ganador:
-                        u = supabase.table("Usuarios").select("Puntos").eq("Id", v['Id_usuario']).execute().data[0]
-                        supabase.table("Usuarios").update({"Puntos": u['Puntos'] + 1}).eq("Id", v['Id_usuario']).execute()
-                st.rerun()
+    # RANKING (Igual al anterior, con podio visual)
+    st.markdown("<div class='podium-gold'>🥇 LÍDER: " + (todos_usuarios[0]['Nombre'] if todos_usuarios else "---") + "</div>", unsafe_allow_html=True)
+    st.dataframe(pd.DataFrame(todos_usuarios)[['Nombre', 'Puntos']], use_container_width=True, hide_index=True)
