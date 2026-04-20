@@ -4,7 +4,6 @@ from datetime import datetime, timezone
 import pandas as pd
 
 # --- 1. CONEXIÓN ---
-# En Streamlit Cloud leerá de st.secrets. En local (tu ordenador), puedes poner tus claves en el except.
 try:
     URL = st.secrets["SUPABASE_URL"]
     KEY = st.secrets["SUPABASE_KEY"]
@@ -15,32 +14,18 @@ except:
 supabase: Client = create_client(URL, KEY)
 
 BANDERAS = {
-    # Grupo A
     "México": "mx", "Sudáfrica": "za", "Corea del Sur": "kr", "República Checa": "cz",
-    # Grupo B
     "Canadá": "ca", "Bosnia y Herzegovina": "ba", "Catar": "qa", "Suiza": "ch",
-    # Grupo C
     "Brasil": "br", "Marruecos": "ma", "Haití": "ht", "Escocia": "gb-sct",
-    # Grupo D
     "Estados Unidos": "us", "Paraguay": "py", "Australia": "au", "Turquía": "tr",
-    # Grupo E
     "Alemania": "de", "Curaçao": "cw", "Costa de Marfil": "ci", "Ecuador": "ec",
-    # Grupo F
     "Países Bajos": "nl", "Japón": "jp", "Suecia": "se", "Túnez": "tn",
-    # Grupo G
     "Bélgica": "be", "Egipto": "eg", "Irán": "ir", "Nueva Zelanda": "nz",
-    # Grupo H
     "España": "es", "Cabo Verde": "cv", "Arabia Saudí": "sa", "Uruguay": "uy",
-    # Grupo I
     "Francia": "fr", "Senegal": "sn", "Irak": "iq", "Noruega": "no",
-    # Grupo J
     "Argentina": "ar", "Argelia": "dz", "Austria": "at", "Jordania": "jo",
-    # Grupo K
     "Portugal": "pt", "RD Congo": "cd", "Uzbekistán": "uz", "Colombia": "co",
-    # Grupo L
     "Inglaterra": "gb-eng", "Croacia": "hr", "Ghana": "gh", "Panamá": "pa",
-    
-    # Algunas de repuesto por si acaso
     "Italia": "it", "Chile": "cl", "Perú": "pe", "Bolivia": "bo", "Venezuela": "ve",
     "Polonia": "pl", "Dinamarca": "dk", "Serbia": "rs", "Gales": "gb-wls", "Ucrania": "ua",
     "Nigeria": "ng", "Camerún": "cm", "Jamaica": "jm", "Costa Rica": "cr", "Grecia": "gr"
@@ -60,10 +45,11 @@ st.markdown("""
     div.stButton > button:first-child { background-color: #00e676 !important; color: #0b101e !important; border-radius: 25px; font-weight: bold; width: 100%; border: none; padding: 10px; transition: 0.3s; }
     div.stButton > button:first-child:hover { background-color: #00c853 !important; transform: scale(1.02); }
     
-    /* 🔥 REGLAS PARA CENTRAR OPCIONES DE APUESTA (RADIO BUTTONS) 🔥 */
-    div.stRadio > div[role="radiogroup"] {
+    /* 🔥 REGLA AGRESIVA PARA CENTRAR OPCIONES DE APUESTA 🔥 */
+    [data-testid="stRadio"] > div[role="radiogroup"] {
+        display: flex !important;
         justify-content: center !important;
-        margin: 0 auto !important;
+        align-items: center !important;
         width: 100% !important;
     }
     
@@ -121,7 +107,7 @@ if st.session_state.get("Estado") == "Pendiente":
 partidos_raw = supabase.table("Partidos").select("*").order("Fecha_hora").execute().data
 todos_usuarios = supabase.table("Usuarios").select("Id, Nombre, Puntos").order("Puntos", desc=True).execute().data
 
-# Agrupar fases ("Grupo A", "Grupo B" se convierten visualmente en "Fase de Grupos")
+# Agrupar fases
 for p in partidos_raw:
     p["Fase_Visual"] = "Fase de Grupos" if "Grupo" in p["Fase"] else p["Fase"]
 
@@ -188,17 +174,18 @@ with tabs[0]:
                     elif p['Id'] in votos:
                         st.info(f"✅ Tu pronóstico guardado: **{votos[p['Id']]}**")
                     elif fecha > datetime.now(timezone.utc):
-                        # Las opciones de apuesta (se centrarán gracias al CSS añadido)
+                        
+                        # Las opciones de apuesta (se centrarán gracias al nuevo CSS agresivo)
                         pred = st.radio("Voto:", [p['Equipo_local'], 'Empate', p['Equipo_visitante']], key=f"r_{p['Id']}", horizontal=True, label_visibility="collapsed")
                         valor_bd = 'X' if pred == 'Empate' else pred 
                         
                         st.write("") # Pequeño margen
                         
-                        # 🔥 BOTÓN CONFIRMAR CENTRADO EN COLUMNAS 🔥
-                        _, col_btn, _ = st.columns([1, 2, 1])
+                        # 🔥 BOTÓN CONFIRMAR CENTRADO ABSOLUTO 🔥
+                        # Dividimos en 3 tercios iguales: [1, 1, 1]. El botón se encaja en el del centro.
+                        _, col_btn, _ = st.columns([1, 1, 1])
                         with col_btn:
                             if st.button("Confirmar", key=f"b_{p['Id']}"):
-                                # upsert asegura que si vuelve a votar, se actualiza el voto
                                 supabase.table("Porras").upsert({"Id_usuario": st.session_state["Id_usuario"], "Id_partido": p["Id"], "Prediccion": valor_bd}).execute()
                                 st.rerun()
                     else: 
@@ -239,7 +226,6 @@ if es_admin:
     with tabs[2]:
         st.subheader("🛠️ Panel de Control")
         
-        # 1. Cerrar partidos
         st.markdown("#### ⚽ Actualizar Resultados")
         p_pend = [p for p in partidos_raw if not p.get('Resultado_real') and datetime.fromisoformat(p['Fecha_hora']) < datetime.now(timezone.utc)]
         if p_pend:
@@ -247,9 +233,7 @@ if es_admin:
             p_sel = st.selectbox("Selecciona un partido:", p_pend, format_func=lambda x: f"{x['Equipo_local']} vs {x['Equipo_visitante']}")
             gan = st.selectbox("Resultado final (Ganador/Empate):", [p_sel['Equipo_local'], 'X', p_sel['Equipo_visitante']])
             if st.button("GUARDAR RESULTADO Y REPARTIR PUNTOS", type="primary"):
-                # Actualizar partido
                 supabase.table("Partidos").update({"Resultado_real": gan}).eq("Id", p_sel['Id']).execute()
-                # Repartir puntos
                 votos_p = supabase.table("Porras").select("*").eq("Id_partido", p_sel['Id']).execute().data
                 for v in votos_p:
                     if v['Prediccion'] == gan:
@@ -262,7 +246,6 @@ if es_admin:
         
         st.divider()
         
-        # 2. Activar usuarios (Bizum)
         st.markdown("#### 💰 Activar Usuarios (Pagos)")
         u_pend = supabase.table("Usuarios").select("*").eq("Estado", "Pendiente").execute().data
         if u_pend:
