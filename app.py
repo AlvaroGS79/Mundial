@@ -10,7 +10,7 @@ try:
 except:
     # Para pruebas locales si no tienes secretos configurados
     URL = "https://ipzbkimkrckwrxisdisr.supabase.co"
-    KEY = "TU_KEY_AQUI" 
+    KEY = "sb_secret_VoCodXzjNBG8nYBwMS8ZBA_IMQo--_V" 
 
 supabase: Client = create_client(URL, KEY)
 
