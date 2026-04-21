@@ -1,6 +1,6 @@
 import streamlit as st
 from supabase import create_client, Client
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 import pandas as pd
 
 # --- 1. CONEXIÓN ---
@@ -36,27 +36,21 @@ st.set_page_config(page_title="Porra Mundial 2026", layout="centered", page_icon
 
 st.markdown("""
     <style>
-    /* Fondo principal modo oscuro Premium */
     .stApp { background-color: #060D13; color: #E1E8ED; font-family: 'Inter', sans-serif; }
     
-    /* Tarjetas de partidos estilo App */
     .match-card { background-color: #111A24; padding: 0px 0px 20px 0px; border-radius: 16px; border: 1px solid #1E2A38; margin-bottom: 24px; box-shadow: 0 8px 24px rgba(0,0,0,0.3); overflow: hidden; }
     .match-header { background-color: #1E2A38; padding: 8px; font-size: 0.75em; color: #8899A6; text-align: center; margin-bottom: 20px; font-weight: bold; letter-spacing: 1px; text-transform: uppercase; }
     .team-name { font-size: 1.1em; font-weight: 600; color: #FFFFFF; }
     
-    /* Botones deportivos (Verde Neón) */
     div.stButton > button:first-child { background-color: #00E676 !important; color: #060D13 !important; border-radius: 30px; font-weight: 800; width: 100%; border: none; padding: 12px; font-size: 1em; transition: 0.2s ease-in-out; text-transform: uppercase; letter-spacing: 1px;}
     div.stButton > button:first-child:hover { background-color: #00C853 !important; transform: translateY(-2px); box-shadow: 0 4px 15px rgba(0,230,118,0.4); }
     
-    /* Marcador VS / Resultado */
     .score-box { background: linear-gradient(145deg, #1A2433, #151E28); border: 1px solid #2C3E50; border-radius: 8px; padding: 6px 12px; font-size: 1.3em; font-weight: 800; color: #00E676; text-align: center; display: inline-block; min-width: 60px;}
     
-    /* Podio Ranking Moderno */
     .podium-gold { background: linear-gradient(135deg, #FFB300, #FF8F00); color: #FFF; padding: 20px; border-radius: 16px; text-align: center; margin-bottom: 15px; box-shadow: 0 10px 20px rgba(255,143,0,0.2); }
     .podium-silver { background: linear-gradient(135deg, #B0BEC5, #78909C); color: #FFF; padding: 15px; border-radius: 16px; text-align: center; }
     .podium-bronze { background: linear-gradient(135deg, #A1887F, #6D4C41); color: #FFF; padding: 15px; border-radius: 16px; text-align: center; }
     
-    /* Ocultar elementos feos de Streamlit */
     [data-testid="stRadio"] > div { justify-content: center !important; }
     .login-container { background-color: #111A24; padding: 40px; border-radius: 24px; text-align: center; border: 1px solid #1E2A38; box-shadow: 0 15px 35px rgba(0,0,0,0.5);}
     [data-testid="stDataFrameToolbar"], #MainMenu, footer { display: none !important; }
@@ -135,6 +129,11 @@ with st.sidebar:
         st.session_state.clear()
         st.rerun()
 
+# --- Zona horaria central (Hora de España: UTC+2 en verano) ---
+# Como el CSV ya tiene la hora de España sin offsets, le decimos a Python que esa fecha ES la UTC para compararlo directo
+# o mejor, creamos una hora "actual_espana" para compararla directamente con la de la BD.
+hora_actual_espana = datetime.now(timezone.utc) + timedelta(hours=2) # En Junio es CEST (UTC+2)
+
 # --- 6. TABS PRINCIPALES ---
 tabs = st.tabs(["📅 Partidos", "🏆 Ranking", "⚙️ Admin" if es_admin else "📜 Reglas"])
 
@@ -150,12 +149,12 @@ with tabs[0]:
                 partidos_fase = [p for p in partidos_raw if p["Fase_Visual"] == fase_tab]
                 for p in partidos_fase:
                     st.markdown("<div class='match-card'>", unsafe_allow_html=True)
-                    fecha = datetime.fromisoformat(p['Fecha_hora'])
                     
-                    # Header de la tarjeta incrustado
-                    st.markdown(f"<div class='match-header'>{p['Fase']} &nbsp;|&nbsp; {fecha.strftime('%d %b %Y - %H:%M')}h</div>", unsafe_allow_html=True)
+                    # Leemos la fecha de la Base de Datos
+                    fecha_partido = datetime.fromisoformat(p['Fecha_hora']).replace(tzinfo=timezone.utc)
                     
-                    # Equipos y Marcador
+                    st.markdown(f"<div class='match-header'>{p['Fase']} &nbsp;|&nbsp; {fecha_partido.strftime('%d %b %Y - %H:%M')}h</div>", unsafe_allow_html=True)
+                    
                     c1, c2, c3 = st.columns([3, 2, 3])
                     with c1:
                         iso_l = BANDERAS.get(p['Equipo_local'], "un")
@@ -169,7 +168,6 @@ with tabs[0]:
                     
                     st.markdown("<hr style='margin: 20px 0px 15px 0px; border: none; border-top: 1px solid #1E2A38;'>", unsafe_allow_html=True)
                     
-                    # Zona de Apuestas
                     if p.get('Resultado_real'):
                         st.write("")
                         _, col_res, _ = st.columns([1, 4, 1])
@@ -186,7 +184,7 @@ with tabs[0]:
                         with col_res:
                             st.info(f"✅ Voto registrado: **{votos[p['Id']]}**")
                             
-                    elif fecha > datetime.now(timezone.utc):
+                    elif fecha_partido > hora_actual_espana:
                         col_r_izq, col_r_cen, col_r_der = st.columns([1, 8, 1])
                         with col_r_cen:
                             pred = st.radio("Voto:", [p['Equipo_local'], 'Empate', p['Equipo_visitante']], key=f"r_{p['Id']}", horizontal=True, label_visibility="collapsed")
@@ -235,7 +233,10 @@ with tabs[1]:
 if es_admin:
     with tabs[2]:
         st.subheader("🛠️ Panel de Control")
-        p_pend = [p for p in partidos_raw if not p.get('Resultado_real') and datetime.fromisoformat(p['Fecha_hora']) < datetime.now(timezone.utc)]
+        
+        # Filtramos partidos pasados comparando hora actual España con hora partido DB
+        p_pend = [p for p in partidos_raw if not p.get('Resultado_real') and datetime.fromisoformat(p['Fecha_hora']).replace(tzinfo=timezone.utc) < hora_actual_espana]
+        
         if p_pend:
             st.info(f"Hay {len(p_pend)} partidos finalizados sin resultado cargado.")
             p_sel = st.selectbox("Selecciona un partido:", p_pend, format_func=lambda x: f"{x['Equipo_local']} vs {x['Equipo_visitante']}")
@@ -266,6 +267,6 @@ else:
         st.markdown("""
         ### 📜 Reglas de la Porra Oficial
         * **Puntuación:** Recibes **1 punto** por cada pronóstico correcto (1, X, 2).
-        * **Cierre Automático:** Las apuestas se bloquean en el instante exacto en que arranca el partido. No se admiten votos de última hora.
+        * **Cierre Automático:** Las apuestas se bloquean en el instante exacto en que arranca el partido (Hora Peninsular de España). No se admiten votos de última hora.
         * **Actualizaciones:** Los cruces de eliminatorias (Octavos, etc.) se irán actualizando automáticamente en la app según avancen los equipos en la realidad.
         """)
