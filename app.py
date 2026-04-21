@@ -110,15 +110,15 @@ if "Id_usuario" not in st.session_state:
         st.markdown("""
         <div style="text-align: center; margin-bottom: 30px;">
             <h1 style="font-size: 3.5em; font-weight: 900; background: -webkit-linear-gradient(45deg, #00E676, #00B0FF); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 0;">FIFA 2026</h1>
-            <h3 style="color: #FFF; font-weight: 800; letter-spacing: 2px; margin-top: 5px;">PORRA OFICIAL</h3>
+            <h3 style="color: #FFF; font-weight: 800; letter-spacing: 2px; margin-top: 5px;">PORRA MUNDIAL</h3>
             <p style="color: #8899A6; font-size: 0.95em;">Inicia sesión o regístrate para jugar</p>
         </div>
         """, unsafe_allow_html=True)
         
         # Formulario nativo (Elimina las cajas vacías)
         with st.form("login_form", border=False):
-            nombre_u = st.text_input("👤 Usuario", placeholder="Tu nombre")
-            pass_u = st.text_input("🔒 Contraseña", type="password", placeholder="Mínimo 1 carácter")
+            nombre_u = st.text_input("👤 Usuario", placeholder="Nombre y Apellido")
+            pass_u = st.text_input("🔒 Contraseña", type="password", placeholder="Contraseña")
             
             st.write("") # Espaciador
             
@@ -321,7 +321,7 @@ if es_admin:
 else:
     with tabs[2]:
         st.markdown("""
-        ### 📜 Reglas de la Porra Oficial
+        ### 📜 Reglas de la Porra del Mundial
         * **Puntuación:** Recibes **1 punto** por cada pronóstico correcto (1, X, 2).
         * **Cierre Automático:** Las apuestas se bloquean en el instante exacto en que arranca el partido (Hora Peninsular de España). No se admiten votos de última hora.
         * **Actualizaciones:** Los cruces de eliminatorias (Octavos, etc.) se irán actualizando automáticamente en la app según avancen los equipos en la realidad.
