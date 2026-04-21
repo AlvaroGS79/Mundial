@@ -8,8 +8,8 @@ try:
     URL = st.secrets["SUPABASE_URL"]
     KEY = st.secrets["SUPABASE_KEY"]
 except:
-    URL = "https://ipzbkimkrckwrxisdisr.supabase.co"
-    KEY = "sb_secret_VoCodXzjNBG8nYBwMS8ZBA_IMQo--_V" 
+    URL = "https://your-url.supabase.co"
+    KEY = "your-key" 
 
 supabase: Client = create_client(URL, KEY)
 
@@ -31,7 +31,7 @@ BANDERAS = {
     "Nigeria": "ng", "Camerún": "cm", "Jamaica": "jm", "Costa Rica": "cr", "Grecia": "gr"
 }
 
-# --- 2. CONFIGURACIÓN Y ESTILOS CSS ---
+# --- 2. CONFIGURACIÓN Y ESTILOS ---
 st.set_page_config(page_title="Porra Mundial 2026", layout="centered", page_icon="⚽")
 
 st.markdown("""
@@ -58,56 +58,61 @@ if "Id_usuario" not in st.session_state:
     with col_login:
         st.markdown("<div style='text-align: center;'><h1 class='text-gradient' style='font-size: 3.5em;'>FIFA 2026</h1></div>", unsafe_allow_html=True)
         with st.form("login_form", border=False):
-            nombre_u = st.text_input("👤 Usuario")
+            nombre_u = st.text_input("👤 Usuario", placeholder="Tu nombre")
             pass_u = st.text_input("🔒 Contraseña", type="password")
-            submit = st.form_submit_button("ENTRAR")
+            submit = st.form_submit_button("ENTRAR AL TORNEO")
         if submit:
-            res = supabase.table("Usuarios").select("*").eq("Nombre", nombre_u).execute()
-            if res.data and str(res.data[0]["Password"]) == str(pass_u):
-                st.session_state.update({"Id_usuario": res.data[0]["Id"], "Nombre": res.data[0]["Nombre"], "Estado": res.data[0]["Estado"]})
-                st.rerun()
-            elif not res.data:
-                nuevo = supabase.table("Usuarios").insert({"Nombre": nombre_u, "Password": pass_u, "Puntos": 0, "Estado": "Pendiente"}).execute()
-                st.session_state.update({"Id_usuario": nuevo.data[0]["Id"], "Nombre": nombre_u, "Estado": "Pendiente"})
-                st.rerun()
-            else: st.error("Acceso denegado")
+            if nombre_u.strip() and pass_u.strip():
+                res = supabase.table("Usuarios").select("*").eq("Nombre", nombre_u).execute()
+                if res.data:
+                    if str(res.data[0]["Password"]) == str(pass_u):
+                        st.session_state.update({"Id_usuario": res.data[0]["Id"], "Nombre": res.data[0]["Nombre"], "Estado": res.data[0].get("Estado", "Pendiente")})
+                        st.rerun()
+                    else: st.error("❌ Contraseña incorrecta")
+                else:
+                    nuevo = supabase.table("Usuarios").insert({"Nombre": nombre_u, "Password": pass_u, "Puntos": 0, "Estado": "Pendiente"}).execute()
+                    st.session_state.update({"Id_usuario": nuevo.data[0]["Id"], "Nombre": nombre_u, "Estado": "Pendiente"})
+                    st.rerun()
     st.stop()
 
-# --- 4. CARGA DE DATOS (MÉTODO SIMPLE) ---
+# --- 4. CARGA DE DATOS (ORDEN POR RESULTADO VACÍO) ---
 ADMIN_NOMBRE = "AGS"
 es_admin = st.session_state["Nombre"] == ADMIN_NOMBRE
 
-# Obtenemos todos los partidos de la base de datos
-partidos_all = supabase.table("Partidos").select("*").order("Fecha_hora").execute().data
+# 1. Traemos todos los partidos
+partidos_raw = supabase.table("Partidos").select("*").order("Fecha_hora").execute().data
 
-# --- LÓGICA DE FILTRADO SIMPLE ---
-# 1. Los que NO tienen resultado (vacío o None)
-sin_resultado = [p for p in partidos_all if not p.get('Resultado_real')]
-# 2. Los que SÍ tienen resultado (cualquier contenido)
-con_resultado = [p for p in partidos_all if p.get('Resultado_real')]
+# 2. Separación manual por campo Resultado_real
+pendientes = []
+finalizados = []
 
-# Juntamos: Arriba los que faltan, abajo los terminados
-partidos_finales = sin_resultado + con_resultado
+for p in partidos_raw:
+    res = p.get('Resultado_real')
+    # Detecta NULL, vacío o la palabra "None"
+    if res is None or str(res).strip() == "" or str(res).strip().lower() == "none":
+        pendientes.append(p)
+    else:
+        finalizados.append(p)
+
+# Unimos: primero los que NO tienen resultado
+partidos_finales = pendientes + finalizados
 
 # --- 5. TABS ---
-tabs = st.tabs(["📅 Furbo", "🏆 Ranking", "⚙️ Admin" if es_admin else "📜 Reglas"])
+tabs = st.tabs(["📅 Partidos", "🏆 Ranking", "⚙️ Admin" if es_admin else "📜 Reglas"])
 
 with tabs[0]:
     fases_nombres = ["Fase de Grupos", "Dieciseisavos", "Octavos", "Cuartos", "Semifinales", "3º y 4º Puesto", "Final"]
-    # Procesar fase visual
     for p in partidos_finales:
         p["Fase_Visual"] = "Fase de Grupos" if "Grupo" in p["Fase"] else p["Fase"]
     
     fases_ex = sorted(list(set(p["Fase_Visual"] for p in partidos_finales)), key=lambda x: fases_nombres.index(x) if x in fases_nombres else 99)
     sub_tabs = st.tabs(fases_ex)
     
-    # Datos de usuario para votos
     votos_data = {v['Id_partido']: v['Prediccion'] for v in supabase.table("Porras").select("Id_partido, Prediccion").eq("Id_usuario", st.session_state["Id_usuario"]).execute().data}
     hora_actual = datetime.now(timezone.utc) + timedelta(hours=2)
 
     for i, fase_tab in enumerate(fases_ex):
         with sub_tabs[i]:
-            # Mostramos los partidos de la fase respetando el orden simple (sin resultado primero)
             for p in [x for x in partidos_finales if x["Fase_Visual"] == fase_tab]:
                 with st.container(border=True):
                     f_p = datetime.fromisoformat(p['Fecha_hora']).replace(tzinfo=timezone.utc)
@@ -116,22 +121,22 @@ with tabs[0]:
                     iso_l, iso_v = BANDERAS.get(p['Equipo_local'], "un"), BANDERAS.get(p['Equipo_visitante'], "un")
                     res_vis = p['Resultado_real'] if p['Resultado_real'] else "VS"
                     
-                    st.markdown(f"""<div style='display: flex; justify-content: space-between; align-items: center; width: 100%;'>
-                        <div style='display: flex; align-items: center; justify-content: flex-end; flex: 1; text-align: right;'>
+                    # HTML Flexbox para alineación perfecta en móvil
+                    st.markdown(f"""<div style='display: flex; justify-content: space-between; align-items: center; width: 100%; margin-bottom: 10px;'>
+                        <div style='display: flex; align-items: center; justify-content: flex-end; flex: 1; text-align: right; padding-right: 10px;'>
                             <span class='team-name' style='margin-right: 8px;'>{p['Equipo_local']}</span>
                             <img src='https://flagcdn.com/32x24/{iso_l}.png' style='border-radius:4px; min-width: 32px;'>
                         </div>
-                        <div style='text-align: center; margin: 0 10px;'><span class='score-box'>{res_vis}</span></div>
-                        <div style='display: flex; align-items: center; justify-content: flex-start; flex: 1; text-align: left;'>
+                        <div style='flex-shrink: 0; text-align: center;'><span class='score-box'>{res_vis}</span></div>
+                        <div style='display: flex; align-items: center; justify-content: flex-start; flex: 1; text-align: left; padding-left: 10px;'>
                             <img src='https://flagcdn.com/32x24/{iso_v}.png' style='border-radius:4px; min-width: 32px; margin-right: 8px;'>
                             <span class='team-name'>{p['Equipo_visitante']}</span>
                         </div>
                     </div>""", unsafe_allow_html=True)
                     
-                    st.markdown("<hr style='margin: 15px 0px 15px 0px; border: none; border-top: 1px solid #1E2A38;'>", unsafe_allow_html=True)
+                    st.markdown("<hr style='margin: 10px 0px 15px 0px; border: none; border-top: 1px solid #1E2A38;'>", unsafe_allow_html=True)
                     
                     if p.get('Resultado_real'):
-                        # Si ya tiene resultado, mostramos cómo quedó la apuesta
                         if p['Id'] in votos_data:
                             if votos_data[p['Id']] == p['Resultado_real']: st.success(f"🎯 Acertaste: {votos_data[p['Id']]}")
                             else: st.error(f"❌ Fallaste. Apostaste: {votos_data[p['Id']]}")
@@ -145,3 +150,15 @@ with tabs[0]:
                             supabase.table("Porras").upsert({"Id_usuario": st.session_state["Id_usuario"], "Id_partido": p["Id"], "Prediccion": val}).execute()
                             st.rerun()
                     else: st.warning("🔒 Bloqueado")
+
+if es_admin:
+    with tabs[2]:
+        st.subheader("🛠️ Admin")
+        p_p = [p for p in partidos_raw if not p.get('Resultado_real')]
+        if p_p:
+            p_sel = st.selectbox("Partido:", p_p, format_func=lambda x: f"{x['Equipo_local']} vs {x['Equipo_visitante']}")
+            gan = st.selectbox("Resultado:", [p_sel['Equipo_local'], 'X', p_sel['Equipo_visitante']])
+            if st.button("Guardar"):
+                supabase.table("Partidos").update({"Resultado_real": gan}).eq("Id", p_sel['Id']).execute()
+                # Recalcular puntos aquí si fuera necesario
+                st.success("Guardado. Recarga la app.")
