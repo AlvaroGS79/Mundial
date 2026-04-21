@@ -210,18 +210,34 @@ with tabs[0]:
                         
                         st.markdown(f"<div class='match-header'>{p['Fase']} &nbsp;|&nbsp; {fecha_partido.strftime('%d %b %Y - %H:%M')}h</div>", unsafe_allow_html=True)
                         
-                        c1, c2, c3 = st.columns([3, 2, 3])
-                        with c1:
-                            iso_l = BANDERAS.get(p['Equipo_local'], "un")
-                            st.markdown(f"<div style='text-align: right;'><span class='team-name'>{p['Equipo_local']}</span> &nbsp;<img src='https://flagcdn.com/32x24/{iso_l}.png' style='border-radius:4px; box-shadow:0 2px 4px rgba(0,0,0,0.5); vertical-align: middle;'></div>", unsafe_allow_html=True)
-                        with c2:
-                            res_txt = p['Resultado_real'] if p['Resultado_real'] else "VS"
-                            st.markdown(f"<div style='text-align: center;'><span class='score-box'>{res_txt}</span></div>", unsafe_allow_html=True)
-                        with c3:
-                            iso_v = BANDERAS.get(p['Equipo_visitante'], "un")
-                            st.markdown(f"<div style='text-align: left;'><img src='https://flagcdn.com/32x24/{iso_v}.png' style='border-radius:4px; box-shadow:0 2px 4px rgba(0,0,0,0.5); vertical-align: middle;'>&nbsp; <span class='team-name'>{p['Equipo_visitante']}</span></div>", unsafe_allow_html=True)
+                        # --- SOLUCIÓN RESPONSIVE PARA MÓVILES (FLEXBOX) ---
+                        iso_l = BANDERAS.get(p['Equipo_local'], "un")
+                        iso_v = BANDERAS.get(p['Equipo_visitante'], "un")
+                        res_txt = p['Resultado_real'] if p['Resultado_real'] else "VS"
                         
-                        st.markdown("<hr style='margin: 15px 0px 15px 0px; border: none; border-top: 1px solid #1E2A38;'>", unsafe_allow_html=True)
+                        # Creamos una fila Flexbox que fuerza a mantener todo alineado y centrado
+                        st.markdown(f"""
+                        <div style="display: flex; justify-content: space-between; align-items: center; width: 100%; margin-bottom: 10px;">
+                            
+                            <div style="display: flex; align-items: center; justify-content: flex-end; flex: 1; text-align: right; padding-right: 10px;">
+                                <span class="team-name" style="margin-right: 8px; font-size: clamp(0.85em, 2.5vw, 1.15em); line-height: 1.2;">{p['Equipo_local']}</span>
+                                <img src="https://flagcdn.com/32x24/{iso_l}.png" style="border-radius:4px; box-shadow:0 2px 4px rgba(0,0,0,0.5); min-width: 32px;">
+                            </div>
+                            
+                            <div style="flex-shrink: 0; text-align: center;">
+                                <span class="score-box" style="font-size: clamp(1em, 3vw, 1.4em); padding: 6px 10px;">{res_txt}</span>
+                            </div>
+                            
+                            <div style="display: flex; align-items: center; justify-content: flex-start; flex: 1; text-align: left; padding-left: 10px;">
+                                <img src="https://flagcdn.com/32x24/{iso_v}.png" style="border-radius:4px; box-shadow:0 2px 4px rgba(0,0,0,0.5); min-width: 32px; margin-right: 8px;">
+                                <span class="team-name" style="font-size: clamp(0.85em, 2.5vw, 1.15em); line-height: 1.2;">{p['Equipo_visitante']}</span>
+                            </div>
+                            
+                        </div>
+                        """, unsafe_allow_html=True)
+                        # ----------------------------------------------------
+                        
+                        st.markdown("<hr style='margin: 10px 0px 15px 0px; border: none; border-top: 1px solid #1E2A38;'>", unsafe_allow_html=True)
                         
                         # ZONA DE APUESTAS
                         if p.get('Resultado_real'):
