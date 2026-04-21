@@ -122,24 +122,43 @@ if st.session_state.get("Estado") == "Pendiente":
         st.session_state["Estado"] = res.data[0]["Estado"]; st.rerun()
     st.stop()
 
-# --- 5. CARGA DE DATOS (ORDEN INTELIGENTE) ---
+# --- 5. CARGA DE DATOS (ORDEN INTELIGENTE A PRUEBA DE BALAS) ---
 ADMIN_NOMBRE = "AGS"
 es_admin = st.session_state["Nombre"] == ADMIN_NOMBRE
 
-partidos_raw_db = supabase.table("Partidos").select("*").execute().data
-if partidos_raw_db:
-    pendientes = sorted([p for p in partidos_raw_db if p.get('Resultado_real') is None], key=lambda x: x['Fecha_hora'])
-    finalizados = sorted([p for p in partidos_raw_db if p.get('Resultado_real') is not None], key=lambda x: x['Fecha_hora'], reverse=True)
-    partidos_raw = pendientes + finalizados
-else: partidos_raw = []
+# 1. Traemos los partidos de la base de datos
+res_db = supabase.table("Partidos").select("*").execute()
+partidos_raw_db = res_db.data if res_db.data else []
 
-for p in partidos_raw: p["Fase_Visual"] = "Fase de Grupos" if "Grupo" in p["Fase"] else p["Fase"]
+if partidos_raw_db:
+    # 2. Separación estricta
+    # Un partido es "Pendiente" SOLO si Resultado_real es exactamente None o está vacío
+    pendientes = [p for p in partidos_raw_db if p.get('Resultado_real') is None or p.get('Resultado_real') == ""]
+    finalizados = [p for p in partidos_raw_db if p.get('Resultado_real') is not None and p.get('Resultado_real') != ""]
+    
+    # 3. Ordenamos:
+    # Pendientes: El que empieza ANTES, va PRIMERO (para ver lo próximo que viene)
+    pendientes = sorted(pendientes, key=lambda x: x['Fecha_hora'])
+    
+    # Finalizados: El que terminó MÁS TARDE, va PRIMERO (historial reciente arriba)
+    finalizados = sorted(finalizados, key=lambda x: x['Fecha_hora'], reverse=True)
+    
+    # Unimos las listas: Primero TODOS los pendientes, luego TODOS los jugados
+    partidos_raw = pendientes + finalizados
+else:
+    partidos_raw = []
+
+# --- PROCESAMIENTO DE FASES Y USUARIOS ---
+for p in partidos_raw:
+    p["Fase_Visual"] = "Fase de Grupos" if "Grupo" in p["Fase"] else p["Fase"]
 
 todos_usuarios_raw = supabase.table("Usuarios").select("Id, Nombre, Puntos").order("Puntos", desc=True).execute().data
 todos_usuarios = [u for u in todos_usuarios_raw if u["Nombre"] != ADMIN_NOMBRE]
 
+# Mantener el orden lógico de las pestañas
 orden_fases = ["Fase de Grupos", "Dieciseisavos", "Octavos", "Cuartos", "Semifinales", "3º y 4º Puesto", "Final"]
-fases_existentes = sorted(list(set(p["Fase_Visual"] for p in partidos_raw)), key=lambda x: orden_fases.index(x) if x in orden_fases else 99)
+fases_existentes = sorted(list(set(p["Fase_Visual"] for p in partidos_raw)), 
+                          key=lambda x: orden_fases.index(x) if x in orden_fases else 99)
 
 with st.sidebar:
     st.markdown(f"<h2 style='text-align: center;'><span class='text-gradient'>👤 {st.session_state['Nombre']}</span></h2>", unsafe_allow_html=True)
