@@ -48,9 +48,14 @@ st.markdown("""
     .stats-container { background: #0D141B; border-radius: 12px; padding: 12px; margin-top: 15px; border: 1px solid #1E2A38; }
     .stat-label { font-size: 0.75em; color: #8899A6; margin-bottom: 8px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; }
     .flag-mini { width: 18px; border-radius: 2px; margin-right: 5px; vertical-align: middle; }
+    
+    /* Reparación de Menú Lateral */
+    [data-testid="stHeader"] { background: rgba(0,0,0,0) !important; }
+    
     div[role="radiogroup"] { display: flex !important; justify-content: center !important; gap: 15px !important; }
     div[data-testid="stButton"] > button, div[data-testid="stFormSubmitButton"] > button { background: linear-gradient(45deg, #00E676, #00C853) !important; color: #060D13 !important; border-radius: 30px !important; font-weight: 800 !important; border: none !important; padding: 12px !important; text-transform: uppercase !important; letter-spacing: 1.5px !important; }
-    #MainMenu, footer, [data-testid="stHeader"], .viewerBadge_container__1QSob { display: none !important; }
+    .podium-gold { background: linear-gradient(135deg, #FFB300, #FF8F00); color: #FFF; padding: 20px; border-radius: 20px; text-align: center; margin-bottom: 15px; }
+    footer, .viewerBadge_container__1QSob { display: none !important; }
     </style>
     """, unsafe_allow_html=True)
 
@@ -105,6 +110,12 @@ usuarios_ranking = [u for u in todos_usuarios_raw if u["Nombre"] != ADMIN_NOMBRE
 orden_fases = ["Fase de Grupos", "Dieciseisavos", "Octavos", "Cuartos", "Semifinales", "3º y 4º Puesto", "Final"]
 fases_existentes = sorted(list(set(p["Fase_Visual"] for p in partidos_raw)), key=lambda x: orden_fases.index(x) if x in orden_fases else 99)
 
+with st.sidebar:
+    st.markdown(f"<h2 style='text-align: center;'><span class='text-gradient'>👤 {st.session_state['Nombre']}</span></h2>", unsafe_allow_html=True)
+    mi_puntos = next((u['Puntos'] for u in todos_usuarios_raw if u['Id'] == st.session_state['Id_usuario']), 0)
+    st.metric("Tus Puntos", mi_puntos)
+    if st.button("🚪 Cerrar Sesión"): st.session_state.clear(); st.rerun()
+
 hora_actual_espana = datetime.now(timezone.utc) + timedelta(hours=2) 
 todas_porras = supabase.table("Porras").select("*").execute().data
 
@@ -130,14 +141,15 @@ with tabs[0]:
                         
                         st.markdown("<hr style='margin: 15px 0px; border: none; border-top: 1px solid #1E2A38;'>", unsafe_allow_html=True)
                         
-                        ya_ha_votado = p['Id'] in votos_usuario
+                        # COMPROBACIÓN DE VOTO REALIZADO
+                        ha_votado = p['Id'] in votos_usuario
 
-                        # --- ZONA DE VOTO ---
+                        # LÓGICA DE VOTO PROPIO
                         if p.get('Resultado_real'):
-                            if ya_ha_votado:
+                            if ha_votado:
                                 if votos_usuario[p['Id']] == p['Resultado_real']: st.success(f"🎯 Acertaste: {votos_usuario[p['Id']]}")
                                 else: st.error(f"❌ Fallaste. Apostaste: {votos_usuario[p['Id']]}")
-                        elif ya_ha_votado:
+                        elif ha_votado:
                             st.info(f"✅ Tu voto: **{votos_usuario[p['Id']]}**")
                         elif fecha_p > hora_actual_espana:
                             pred = st.radio("Voto:", [p['Equipo_local'], 'Empate', p['Equipo_visitante']], key=f"r_{p['Id']}", horizontal=True, label_visibility="collapsed")
@@ -146,10 +158,9 @@ with tabs[0]:
                                 supabase.table("Porras").upsert({"Id_usuario": st.session_state["Id_usuario"], "Id_partido": p["Id"], "Prediccion": val_bd}).execute(); st.rerun()
                         else: st.warning("🔒 Cerrado.")
 
-                        # --- APARTADO SOCIAL (BLOQUEADO HASTA QUE VOTES) ---
-                        votos_p = [v for v in todas_porras if v['Id_partido'] == p['Id']]
-                        
-                        if ya_ha_votado or fecha_p <= hora_actual_espana:
+                        # --- APARTADO SOCIAL (SOLO VISIBLE SI YA HA VOTADO) ---
+                        if ha_votado or p.get('Resultado_real'):
+                            votos_p = [v for v in todas_porras if v['Id_partido'] == p['Id']]
                             if votos_p:
                                 st.markdown("<div class='stats-container'>", unsafe_allow_html=True)
                                 n_total = len(votos_p)
@@ -163,21 +174,24 @@ with tabs[0]:
                                 with c2: st.markdown(f"🤝 **{p_x:.0%}**", unsafe_allow_html=True)
                                 with c3: st.markdown(f"<img src='https://flagcdn.com/16x12/{iso_v}.png' class='flag-mini'> **{p_v:.0%}**", unsafe_allow_html=True)
                                 
-                                # Detalle de nombres (Solo tras inicio del partido)
+                                # DESPLEGABLE DE NOMBRES (SOLO SI EL PARTIDO HA EMPEZADO)
                                 if fecha_p <= hora_actual_espana:
                                     with st.expander("🔍 Ver qué ha votado cada usuario"):
                                         data_social = [{"Jugador": dict_nombres.get(v['Id_usuario'], "Anon"), "Apuesta": v['Prediccion']} for v in votos_p]
                                         st.table(pd.DataFrame(data_social))
+                                else:
+                                    st.markdown("<p style='font-size:0.7em; color:#8899A6; text-align:center; margin-top:8px; font-style:italic;'>Los nombres se revelarán al inicio del partido.</p>", unsafe_allow_html=True)
                                 st.markdown("</div>", unsafe_allow_html=True)
-                        else:
-                            st.markdown("<p style='font-size:0.75em; color:#556677; text-align:center; margin-top:10px;'>Vota para ver la tendencia de la comunidad 🗳️</p>", unsafe_allow_html=True)
+                        elif fecha_p > hora_actual_espana:
+                            # Mensaje motivador para que voten
+                            st.markdown("<p style='font-size:0.75em; color:#556677; text-align:center; margin-top:10px;'>Vota para descubrir la opinión de la comunidad 🗳️</p>", unsafe_allow_html=True)
 
 with tabs[1]:
     if not usuarios_ranking: st.info("Sin usuarios.")
     else:
         u_p = [u for u in usuarios_ranking if u['Puntos'] > 0]
         if u_p:
-            st.markdown("<h3 style='text-align: center; margin-bottom: 30px;'><span class='text-gradient'>🏆 LÍDERES</span></h3>", unsafe_allow_html=True)
+            st.markdown("<h3 style='text-align: center; margin-bottom: 30px;'><span class='text-gradient'>🏆 LÍDERES DEL MUNDIAL</span></h3>", unsafe_allow_html=True)
             c1, c2, c3 = st.columns(3)
             with c1: st.markdown(f"<div class='podium-gold'>🥇<br>{u_p[0]['Nombre']}<br>{u_p[0]['Puntos']} pts</div>", unsafe_allow_html=True)
             if len(u_p) > 1:
@@ -194,26 +208,24 @@ if es_admin:
         if p_admin:
             p_sel = st.selectbox("Partido finalizado:", p_admin, format_func=lambda x: f"{x['Equipo_local']} vs {x['Equipo_visitante']}")
             gan = st.selectbox("Resultado final:", [p_sel['Equipo_local'], 'X', p_sel['Equipo_visitante']])
-            if st.button("GUARDAR Y REPARTIR PUNTOS", type="primary"):
+            if st.button("GUARDAR Y REPARTIR PUNTOS"):
                 supabase.table("Partidos").update({"Resultado_real": gan}).eq("Id", p_sel['Id']).execute()
-                votos_partido = [v for v in todas_porras if v['Id_partido'] == p_sel['Id']]
-                for v in votos_partido:
-                    if v['Prediccion'] == gan:
-                        pts = supabase.table("Usuarios").select("Puntos").eq("Id", v['Id_usuario']).execute().data[0]['Puntos']
-                        supabase.table("Usuarios").update({"Puntos": pts + 1}).eq("Id", v['Id_usuario']).execute()
+                for v in [v for v in todas_porras if v['Id_partido'] == p_sel['Id'] and v['Prediccion'] == gan]:
+                    u_pts = supabase.table("Usuarios").select("Puntos").eq("Id", v['Id_usuario']).execute().data[0]['Puntos']
+                    supabase.table("Usuarios").update({"Puntos": u_pts + 1}).eq("Id", v['Id_usuario']).execute()
                 st.rerun()
         st.divider()
         u_pend = supabase.table("Usuarios").select("*").eq("Estado", "Pendiente").execute().data
         if u_pend:
             u_sel = st.selectbox("Validar pago:", u_pend, format_func=lambda x: x['Nombre'])
-            if st.button("VALIDAR PAGO"):
+            if st.button("ACTIVAR"):
                 supabase.table("Usuarios").update({"Estado": "Pagado"}).eq("Id", u_sel['Id']).execute(); st.rerun()
 else:
     with tabs[2]:
         st.markdown("""
         ### 📜 Reglas de la Porra Mundial 2026
         1. **Puntos:** 1 punto por acierto.
-        2. **Tendencia:** Solo verás los porcentajes de la comunidad después de haber votado.
-        3. **Transparencia:** Los nombres y votos de los demás se revelan al arrancar el partido.
+        2. **Visibilidad:** Los porcentajes de la comunidad solo se desbloquean tras realizar tu voto.
+        3. **Transparencia:** Los nombres y apuestas individuales se revelan al inicio del partido.
         4. **Cierre:** Apuestas bloqueadas al inicio del encuentro.
         """)
