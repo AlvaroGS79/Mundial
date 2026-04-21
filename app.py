@@ -69,42 +69,50 @@ if "Id_usuario" not in st.session_state:
                 nuevo = supabase.table("Usuarios").insert({"Nombre": nombre_u, "Password": pass_u, "Puntos": 0, "Estado": "Pendiente"}).execute()
                 st.session_state.update({"Id_usuario": nuevo.data[0]["Id"], "Nombre": nombre_u, "Estado": "Pendiente"})
                 st.rerun()
-            else: st.error("❌ Error")
+            else: st.error("❌ Error en login")
     st.stop()
 
 # --- 4. CARGA DE DATOS ---
 ADMIN_NOMBRE = "AGS"
 es_admin = st.session_state["Nombre"] == ADMIN_NOMBRE
+
+# Traemos votos
 votos_usuario = {v['Id_partido'] for v in supabase.table("Porras").select("Id_partido").eq("Id_usuario", st.session_state["Id_usuario"]).execute().data}
-partidos_raw = supabase.table("Partidos").select("*").execute().data
-for p in partidos_raw: p["Fase_Visual"] = "Fase de Grupos" if "Grupo" in p["Fase"] else p["Fase"]
+
+# Traemos partidos ordenados por fecha de base
+partidos_raw_db = supabase.table("Partidos").select("*").order("Fecha_hora").execute().data
+
+# --- LÓGICA DE ORDENAMIENTO RADICAL ---
+# 1. Partidos SIN voto (Prioridad máxima)
+pendientes_voto = [p for p in partidos_raw_db if p['Id'] not in votos_usuario and not p.get('Resultado_real')]
+# 2. Partidos YA votados pero sin resultado oficial
+ya_votados = [p for p in partidos_raw_db if p['Id'] in votos_usuario and not p.get('Resultado_real')]
+# 3. Partidos con resultado oficial (Historial)
+finalizados = [p for p in partidos_raw_db if p.get('Resultado_real')]
+
+# Combinamos en este orden exacto
+partidos_ordenados_total = pendientes_voto + ya_votados + finalizados
+
+for p in partidos_ordenados_total: 
+    p["Fase_Visual"] = "Fase de Grupos" if "Grupo" in p["Fase"] else p["Fase"]
 
 # --- 5. TABS ---
 tabs = st.tabs(["📅 Partidos", "🏆 Ranking", "⚙️ Admin" if es_admin else "📜 Reglas"])
 
 with tabs[0]:
-    fases = ["Fase de Grupos", "Dieciseisavos", "Octavos", "Cuartos", "Semifinales", "3º y 4º Puesto", "Final"]
-    fases_ex = sorted(list(set(p["Fase_Visual"] for p in partidos_raw)), key=lambda x: fases.index(x) if x in fases else 99)
-    sub_tabs = st.tabs(fases_ex)
+    fases_orden = ["Fase de Grupos", "Dieciseisavos", "Octavos", "Cuartos", "Semifinales", "3º y 4º Puesto", "Final"]
+    fases_presentes = sorted(list(set(p["Fase_Visual"] for p in partidos_ordenados_total)), key=lambda x: fases_orden.index(x) if x in fases_orden else 99)
+    sub_tabs = st.tabs(fases_presentes)
     
-    # Traemos predicciones para el texto
     preds = {v['Id_partido']: v['Prediccion'] for v in supabase.table("Porras").select("Id_partido, Prediccion").eq("Id_usuario", st.session_state["Id_usuario"]).execute().data}
     hora_actual = datetime.now(timezone.utc) + timedelta(hours=2)
 
-    for i, fase_tab in enumerate(fases_ex):
+    for i, fase_tab in enumerate(fases_presentes):
         with sub_tabs[i]:
-            # LÓGICA DE PESOS DINÁMICA POR PESTAÑA
-            partidos_fase = [p for p in partidos_raw if p["Fase_Visual"] == fase_tab]
+            # Filtramos los partidos de esta fase manteniendo el orden que ya calculamos arriba
+            partidos_fase = [p for p in partidos_ordenados_total if p["Fase_Visual"] == fase_tab]
             
-            def prioridad(p):
-                if p.get('Resultado_real'): return 2  # Al fondo
-                if p['Id'] in votos_usuario: return 1 # Al medio
-                return 0                             # Arriba
-
-            # Ordenamos: Prioridad (0,1,2) y luego Fecha
-            partidos_ordenados = sorted(partidos_fase, key=lambda x: (prioridad(x), x['Fecha_hora']))
-
-            for p in partidos_ordenados:
+            for p in partidos_fase:
                 with st.container(border=True):
                     f_p = datetime.fromisoformat(p['Fecha_hora']).replace(tzinfo=timezone.utc)
                     st.markdown(f"<div class='match-header'>{p['Fase']} | {f_p.strftime('%d %b %H:%M')}h</div>", unsafe_allow_html=True)
@@ -130,6 +138,7 @@ with tabs[0]:
                         if p['Id'] in preds:
                             if preds[p['Id']] == p['Resultado_real']: st.success(f"🎯 Acertaste: {preds[p['Id']]}")
                             else: st.error(f"❌ Fallaste. Apostaste: {preds[p['Id']]}")
+                        else: st.info(f"Finalizado: {p['Resultado_real']}")
                     elif p['Id'] in votos_usuario:
                         st.info(f"✅ Voto registrado: **{preds[p['Id']]}**")
                     elif f_p > hora_actual:
