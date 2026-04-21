@@ -159,33 +159,24 @@ if st.session_state.get("Estado") == "Pendiente":
     st.stop()
 
 # --- 5. CARGA DE DATOS ---
+# --- 5. CARGA DE DATOS (ORDEN INTELIGENTE) ---
 ADMIN_NOMBRE = "AGS"
 es_admin = st.session_state["Nombre"] == ADMIN_NOMBRE
 
+# 1. Traemos los partidos de la base de datos
 partidos_raw = supabase.table("Partidos").select("*").order("Fecha_hora").execute().data
+
+# 2. Lógica de ordenamiento dinámico:
+# Queremos que los partidos SIN resultado (Resultado_real es None) salgan arriba
+# y los que ya tienen resultado se vayan al final de la lista.
+if partidos_raw:
+    partidos_raw = sorted(
+        partidos_raw, 
+        key=lambda x: (x.get('Resultado_real') is not None, x['Fecha_hora'])
+    )
+
+# ... (el resto del código de procesamiento de usuarios sigue igual)
 todos_usuarios_raw = supabase.table("Usuarios").select("Id, Nombre, Puntos").order("Puntos", desc=True).execute().data
-todos_usuarios = [u for u in todos_usuarios_raw if u["Nombre"] != ADMIN_NOMBRE]
-
-for p in partidos_raw:
-    p["Fase_Visual"] = "Fase de Grupos" if "Grupo" in p["Fase"] else p["Fase"]
-
-orden_fases = ["Fase de Grupos", "Dieciseisavos", "Octavos", "Cuartos", "Semifinales", "3º y 4º Puesto", "Final"]
-fases_existentes = sorted(list(set(p["Fase_Visual"] for p in partidos_raw)), 
-                          key=lambda x: orden_fases.index(x) if x in orden_fases else 99)
-
-with st.sidebar:
-    st.markdown(f"<h2 style='text-align: center;'><span class='text-gradient'>👤 {st.session_state['Nombre']}</span></h2>", unsafe_allow_html=True)
-    res_yo = [u for u in todos_usuarios_raw if u['Id'] == st.session_state['Id_usuario']]
-    puntos_yo = res_yo[0]['Puntos'] if res_yo else 0
-    pos_display = "Admin" if es_admin else f"{next((i + 1 for i, u in enumerate(todos_usuarios) if u['Id'] == st.session_state['Id_usuario']), '-')}º"
-    
-    c1, c2 = st.columns(2)
-    c1.metric("Tus Puntos", puntos_yo)
-    c2.metric("Posición", pos_display)
-    st.divider()
-    if st.button("🚪 Cerrar Sesión"):
-        st.session_state.clear()
-        st.rerun()
 
 # Reloj oficial del servidor cuadrado con España (UTC+2)
 hora_actual_espana = datetime.now(timezone.utc) + timedelta(hours=2) 
