@@ -224,25 +224,37 @@ with tabs[0]:
                         else: 
                             st.warning("🔒 Partido en juego / Finalizado. Esperando resultado.")
 
+# --- TAB 2: RANKING ---
 with tabs[1]:
     if not todos_usuarios:
         st.info("Aún no hay usuarios en el ranking.")
     else:
-        st.markdown("<h3 style='text-align: center; margin-bottom: 30px; font-weight:800; color:#FFF;'>🏆 LÍDERES DEL MUNDIAL</h3>", unsafe_allow_html=True)
-        col_oro, col_plata, col_bronce = st.columns(3)
-        if len(todos_usuarios) > 0:
-            with col_oro: st.markdown(f"<div class='podium-gold'><h1 style='margin:0;'>🥇</h1><h3 style='margin:5px 0;'>{todos_usuarios[0]['Nombre']}</h3><h4 style='margin:0;'>{todos_usuarios[0]['Puntos']} pts</h4></div>", unsafe_allow_html=True)
-        if len(todos_usuarios) > 1:
-            with col_plata: st.markdown(f"<div class='podium-silver'><h2 style='margin:0;'>🥈</h2><h4 style='margin:5px 0;'>{todos_usuarios[1]['Nombre']}</h4><h5 style='margin:0;'>{todos_usuarios[1]['Puntos']} pts</h5></div>", unsafe_allow_html=True)
-        if len(todos_usuarios) > 2:
-            with col_bronce: st.markdown(f"<div class='podium-bronze'><h2 style='margin:0;'>🥉</h2><h4 style='margin:5px 0;'>{todos_usuarios[2]['Nombre']}</h4><h5 style='margin:0;'>{todos_usuarios[2]['Puntos']} pts</h5></div>", unsafe_allow_html=True)
+        # Filtramos solo a los usuarios que ya tienen algún punto para el podio
+        usuarios_con_puntos = [u for u in todos_usuarios if u['Puntos'] > 0]
+        
+        # Si hay al menos un usuario con puntos, mostramos el podio
+        if usuarios_con_puntos:
+            st.markdown("<h3 style='text-align: center; margin-bottom: 30px; font-weight:800; color:#FFF;'>🏆 LÍDERES DEL MUNDIAL</h3>", unsafe_allow_html=True)
+            col_oro, col_plata, col_bronce = st.columns(3)
+            if len(usuarios_con_puntos) > 0:
+                with col_oro: st.markdown(f"<div class='podium-gold'><h1 style='margin:0;'>🥇</h1><h3 style='margin:5px 0;'>{usuarios_con_puntos[0]['Nombre']}</h3><h4 style='margin:0;'>{usuarios_con_puntos[0]['Puntos']} pts</h4></div>", unsafe_allow_html=True)
+            if len(usuarios_con_puntos) > 1:
+                with col_plata: st.markdown(f"<div class='podium-silver'><h2 style='margin:0;'>🥈</h2><h4 style='margin:5px 0;'>{usuarios_con_puntos[1]['Nombre']}</h4><h5 style='margin:0;'>{usuarios_con_puntos[1]['Puntos']} pts</h5></div>", unsafe_allow_html=True)
+            if len(usuarios_con_puntos) > 2:
+                with col_bronce: st.markdown(f"<div class='podium-bronze'><h2 style='margin:0;'>🥉</h2><h4 style='margin:5px 0;'>{usuarios_con_puntos[2]['Nombre']}</h4><h5 style='margin:0;'>{usuarios_con_puntos[2]['Puntos']} pts</h5></div>", unsafe_allow_html=True)
+            st.divider()
+        else:
+            # Si nadie tiene puntos, mostramos un pequeño mensaje motivacional
+            st.markdown("<div style='text-align: center; color: #8899A6; margin-bottom: 20px; font-style: italic;'>El podio aparecerá en cuanto comiencen a repartirse los primeros puntos. ¡Suerte a todos!</div>", unsafe_allow_html=True)
 
-        st.divider()
+        # La tabla general siempre se muestra
         st.markdown("<h4 style='color:#FFF;'>Clasificación Completa</h4>", unsafe_allow_html=True)
         
         df = pd.DataFrame(todos_usuarios)
         def medalla(i): return "🥇" if i==0 else "🥈" if i==1 else "🥉" if i==2 else f"{i+1}."
-        df['Pos'] = [medalla(i) for i in range(len(df))]
+        
+        # Para la tabla, asignamos medallas solo si tienen puntos, si no, solo el número
+        df['Pos'] = [medalla(i) if u['Puntos'] > 0 else f"{i+1}." for i, u in enumerate(todos_usuarios)]
         df['Jugador'] = df['Pos'] + " " + df['Nombre']
         max_p = int(df['Puntos'].max()) if df['Puntos'].max() > 0 else 10
         
