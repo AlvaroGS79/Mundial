@@ -268,4 +268,35 @@ if es_admin:
         if p_pend:
             st.info(f"Hay {len(p_pend)} partidos finalizados sin resultado cargado.")
             p_sel = st.selectbox("Selecciona un partido:", p_pend, format_func=lambda x: f"{x['Equipo_local']} vs {x['Equipo_visitante']}")
-            gan = st.selectbox("Resultado final (Ganador/Empate):", [p_sel['Equipo_local'], 'X',
+            # ¡Aquí está la línea corregida y completa!
+            gan = st.selectbox("Resultado final (Ganador/Empate):", [p_sel['Equipo_local'], 'X', p_sel['Equipo_visitante']])
+            
+            if st.button("GUARDAR RESULTADO Y REPARTIR PUNTOS", type="primary"):
+                supabase.table("Partidos").update({"Resultado_real": gan}).eq("Id", p_sel['Id']).execute()
+                votos_p = supabase.table("Porras").select("*").eq("Id_partido", p_sel['Id']).execute().data
+                for v in votos_p:
+                    if v['Prediccion'] == gan:
+                        u_pts = supabase.table("Usuarios").select("Puntos").eq("Id", v['Id_usuario']).execute().data[0]['Puntos']
+                        supabase.table("Usuarios").update({"Puntos": u_pts + 1}).eq("Id", v['Id_usuario']).execute()
+                st.success("¡Resultado actualizado y ranking recalculado!")
+                st.rerun()
+        else:
+            st.success("No hay partidos pendientes de cerrar.")
+        st.divider()
+        u_pend = supabase.table("Usuarios").select("*").eq("Estado", "Pendiente").execute().data
+        if u_pend:
+            u_sel = st.selectbox("Usuario que ha pagado:", u_pend, format_func=lambda x: x['Nombre'])
+            if st.button("MARCAR COMO PAGADO"):
+                supabase.table("Usuarios").update({"Estado": "Pagado"}).eq("Id", u_sel['Id']).execute()
+                st.success(f"¡Usuario {u_sel['Nombre']} activado!")
+                st.rerun()
+        else: 
+            st.write("No hay pagos pendientes.")
+else:
+    with tabs[2]:
+        st.markdown("""
+        ### 📜 Reglas de la Porra Oficial
+        * **Puntuación:** Recibes **1 punto** por cada pronóstico correcto (1, X, 2).
+        * **Cierre Automático:** Las apuestas se bloquean en el instante exacto en que arranca el partido (Hora Peninsular de España). No se admiten votos de última hora.
+        * **Actualizaciones:** Los cruces de eliminatorias (Octavos, etc.) se irán actualizando automáticamente en la app según avancen los equipos en la realidad.
+        """)
