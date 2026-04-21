@@ -54,7 +54,7 @@ st.markdown("""
     .team-name { font-size: 1.1em; font-weight: 600; color: #FFFFFF; }
     .score-box { background: linear-gradient(145deg, #1A2433, #151E28); border: 1px solid #2C3E50; border-radius: 8px; padding: 6px 12px; font-size: 1.3em; font-weight: 800; color: #00E676; text-align: center; display: inline-block; min-width: 60px;}
     
-    /* 2. CENTRAR LOS RADIO BUTTONS Y EL BOTÓN DE VERDAD */
+    /* 2. CENTRAR LOS RADIO BUTTONS */
     div[role="radiogroup"] {
         display: flex !important;
         justify-content: center !important;
@@ -63,29 +63,20 @@ st.markdown("""
         margin-bottom: 10px !important;
     }
     
-    div[data-testid="stButton"] {
-        display: flex !important;
-        justify-content: center !important;
-        width: 100% !important;
-    }
-    
-    div[data-testid="stButton"] > button {
+    /* ESTILO BOTÓN CONFIRMAR ORIGINAL (Ajustado a verde neon) */
+    div.stButton > button:first-child { 
         background-color: #00E676 !important; 
         color: #060D13 !important; 
-        border-radius: 30px !important; 
-        font-weight: 800 !important; 
-        width: 60% !important; /* Ancho del botón */
-        border: none !important; 
-        padding: 10px !important; 
-        font-size: 1em !important; 
-        text-transform: uppercase !important; 
-        letter-spacing: 1px !important;
-        transition: 0.2s ease-in-out !important;
+        border-radius: 25px; 
+        font-weight: bold; 
+        width: 100%; 
+        border: none; 
+        padding: 10px; 
+        transition: 0.3s; 
     }
-    div[data-testid="stButton"] > button:hover {
+    div.stButton > button:first-child:hover { 
         background-color: #00C853 !important; 
-        transform: translateY(-2px) !important; 
-        box-shadow: 0 4px 15px rgba(0,230,118,0.4) !important; 
+        transform: scale(1.02); 
     }
     
     /* Login y Podios */
@@ -188,7 +179,6 @@ with tabs[0]:
                 partidos_fase = [p for p in partidos_raw if p["Fase_Visual"] == fase_tab]
                 for p in partidos_fase:
                     
-                    # 🔥 AQUÍ ESTÁ LA MAGIA: Usamos el contenedor nativo como Tarjeta 🔥
                     with st.container(border=True):
                         fecha_partido = datetime.fromisoformat(p['Fecha_hora']).replace(tzinfo=timezone.utc)
                         
@@ -219,15 +209,18 @@ with tabs[0]:
                             st.info(f"✅ Voto registrado: **{votos[p['Id']]}**")
                                     
                         elif fecha_partido > hora_actual_espana:
-                            # Se centran solos gracias al CSS sin necesidad de columnas
+                            # Se centran solos gracias al CSS
                             pred = st.radio("Voto:", [p['Equipo_local'], 'Empate', p['Equipo_visitante']], key=f"r_{p['Id']}", horizontal=True, label_visibility="collapsed")
                             valor_bd = 'X' if pred == 'Empate' else pred 
                             
                             st.write("") 
                             
-                            if st.button("Confirmar", key=f"b_{p['Id']}"):
-                                supabase.table("Porras").upsert({"Id_usuario": st.session_state["Id_usuario"], "Id_partido": p["Id"], "Prediccion": valor_bd}).execute()
-                                st.rerun()
+                            # Volvemos al centrado con columnas para que el botón tenga su tamaño original
+                            _, col_btn, _ = st.columns([1, 1, 1])
+                            with col_btn:
+                                if st.button("Confirmar", key=f"b_{p['Id']}"):
+                                    supabase.table("Porras").upsert({"Id_usuario": st.session_state["Id_usuario"], "Id_partido": p["Id"], "Prediccion": valor_bd}).execute()
+                                    st.rerun()
                         else: 
                             st.warning("🔒 Partido en juego / Finalizado. Esperando resultado.")
 
@@ -268,7 +261,6 @@ if es_admin:
         if p_pend:
             st.info(f"Hay {len(p_pend)} partidos finalizados sin resultado cargado.")
             p_sel = st.selectbox("Selecciona un partido:", p_pend, format_func=lambda x: f"{x['Equipo_local']} vs {x['Equipo_visitante']}")
-            # ¡Aquí está la línea corregida y completa!
             gan = st.selectbox("Resultado final (Ganador/Empate):", [p_sel['Equipo_local'], 'X', p_sel['Equipo_visitante']])
             
             if st.button("GUARDAR RESULTADO Y REPARTIR PUNTOS", type="primary"):
