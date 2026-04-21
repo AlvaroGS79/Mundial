@@ -8,8 +8,8 @@ try:
     URL = st.secrets["SUPABASE_URL"]
     KEY = st.secrets["SUPABASE_KEY"]
 except:
-    URL = "https://your-url.supabase.co"
-    KEY = "your-key" 
+    URL = "https://ipzbkimkrckwrxisdisr.supabase.co"
+    KEY = "sb_publishable_7yepF3GoDlp6yBv0w54U7g_uYpNBGF_" 
 
 supabase: Client = create_client(URL, KEY)
 
