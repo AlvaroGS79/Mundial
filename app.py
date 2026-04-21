@@ -49,6 +49,15 @@ st.markdown("""
         padding: 5px !important;
     }
     
+    /* Estilo nativo para el formulario de Login */
+    [data-testid="stForm"] {
+        background-color: #111A24 !important;
+        border-radius: 24px !important;
+        border: 1px solid #1E2A38 !important;
+        box-shadow: 0 15px 35px rgba(0,0,0,0.5) !important;
+        padding: 30px !important;
+    }
+    
     /* Textos dentro de la tarjeta */
     .match-header { font-size: 0.75em; color: #8899A6; text-align: center; margin-bottom: 15px; font-weight: bold; letter-spacing: 1px; text-transform: uppercase; }
     .team-name { font-size: 1.1em; font-weight: 600; color: #FFFFFF; }
@@ -63,24 +72,26 @@ st.markdown("""
         margin-bottom: 10px !important;
     }
     
-    /* ESTILO BOTÓN CONFIRMAR ORIGINAL (Ajustado a verde neon) */
-    div.stButton > button:first-child { 
+    /* ESTILO BOTÓN CONFIRMAR Y LOGIN */
+    div[data-testid="stButton"] > button, div[data-testid="stFormSubmitButton"] > button { 
         background-color: #00E676 !important; 
         color: #060D13 !important; 
-        border-radius: 25px; 
-        font-weight: bold; 
-        width: 100%; 
-        border: none; 
-        padding: 10px; 
-        transition: 0.3s; 
+        border-radius: 30px !important; 
+        font-weight: 800 !important; 
+        width: 100% !important; 
+        border: none !important; 
+        padding: 12px !important; 
+        text-transform: uppercase !important;
+        letter-spacing: 1px !important;
+        transition: 0.3s !important; 
     }
-    div.stButton > button:first-child:hover { 
+    div[data-testid="stButton"] > button:hover, div[data-testid="stFormSubmitButton"] > button:hover { 
         background-color: #00C853 !important; 
-        transform: scale(1.02); 
+        transform: translateY(-2px) !important;
+        box-shadow: 0 4px 15px rgba(0,230,118,0.4) !important; 
     }
     
-    /* Login y Podios */
-    .login-container { background-color: #111A24; padding: 40px; border-radius: 24px; text-align: center; border: 1px solid #1E2A38; box-shadow: 0 15px 35px rgba(0,0,0,0.5);}
+    /* Podios */
     .podium-gold { background: linear-gradient(135deg, #FFB300, #FF8F00); color: #FFF; padding: 20px; border-radius: 16px; text-align: center; margin-bottom: 15px; box-shadow: 0 10px 20px rgba(255,143,0,0.2); }
     .podium-silver { background: linear-gradient(135deg, #B0BEC5, #78909C); color: #FFF; padding: 15px; border-radius: 16px; text-align: center; }
     .podium-bronze { background: linear-gradient(135deg, #A1887F, #6D4C41); color: #FFF; padding: 15px; border-radius: 16px; text-align: center; }
@@ -91,18 +102,32 @@ st.markdown("""
 
 # --- 3. LÓGICA DE ACCESO (LOGIN) ---
 if "Id_usuario" not in st.session_state:
-    _, col2, _ = st.columns([1, 2, 1])
-    with col2:
-        st.markdown("<div class='login-container'>", unsafe_allow_html=True)
-        st.markdown("<h1 style='font-size: 3.5em; margin-bottom: 0;'>⚽</h1>", unsafe_allow_html=True)
-        st.markdown("<h2 style='color:#FFF; font-weight:800;'>MUNDIAL 2026</h2>", unsafe_allow_html=True)
-        st.markdown("<p style='color:#8899A6; margin-bottom:25px;'>Porra Oficial</p>", unsafe_allow_html=True)
+    st.markdown("<br><br>", unsafe_allow_html=True)
+    _, col_login, _ = st.columns([1, 1.5, 1])
+    
+    with col_login:
+        # Título Pro con Gradiente
+        st.markdown("""
+        <div style="text-align: center; margin-bottom: 30px;">
+            <h1 style="font-size: 3.5em; font-weight: 900; background: -webkit-linear-gradient(45deg, #00E676, #00B0FF); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 0;">FIFA 2026</h1>
+            <h3 style="color: #FFF; font-weight: 800; letter-spacing: 2px; margin-top: 5px;">PORRA OFICIAL</h3>
+            <p style="color: #8899A6; font-size: 0.95em;">Inicia sesión o regístrate para jugar</p>
+        </div>
+        """, unsafe_allow_html=True)
         
-        nombre_u = st.text_input("Usuario", placeholder="Tu nombre", label_visibility="collapsed")
-        pass_u = st.text_input("Contraseña", type="password", placeholder="Contraseña", label_visibility="collapsed")
-        st.write("")
-        
-        if st.button("ENTRAR / JUGAR"):
+        # Formulario nativo (Elimina las cajas vacías)
+        with st.form("login_form", border=False):
+            nombre_u = st.text_input("👤 Usuario", placeholder="Tu nombre")
+            pass_u = st.text_input("🔒 Contraseña", type="password", placeholder="Mínimo 1 carácter")
+            
+            st.write("") # Espaciador
+            
+            # Botón centrado usando columnas dentro del formulario
+            _, col_btn, _ = st.columns([1, 2, 1])
+            with col_btn:
+                submit = st.form_submit_button("ENTRAR / JUGAR", use_container_width=True)
+
+        if submit:
             if nombre_u.strip() and pass_u.strip():
                 res = supabase.table("Usuarios").select("*").eq("Nombre", nombre_u).execute()
                 if res.data:
@@ -111,14 +136,16 @@ if "Id_usuario" not in st.session_state:
                         st.session_state["Nombre"] = res.data[0]["Nombre"]
                         st.session_state["Estado"] = res.data[0].get("Estado", "Pendiente")
                         st.rerun()
-                    else: st.error("❌ Contraseña incorrecta")
+                    else: 
+                        st.error("❌ Contraseña incorrecta")
                 else:
                     nuevo = supabase.table("Usuarios").insert({"Nombre": nombre_u, "Password": pass_u, "Puntos": 0, "Estado": "Pendiente"}).execute()
                     st.session_state["Id_usuario"] = nuevo.data[0]["Id"]
                     st.session_state["Nombre"] = nuevo.data[0]["Nombre"]
                     st.session_state["Estado"] = "Pendiente"
                     st.rerun()
-        st.markdown("</div>", unsafe_allow_html=True)
+            else:
+                st.warning("⚠️ Rellena ambos campos")
     st.stop()
 
 # --- 4. VERIFICACIÓN DE PAGO ---
@@ -215,7 +242,7 @@ with tabs[0]:
                             
                             st.write("") 
                             
-                            # Volvemos al centrado con columnas para que el botón tenga su tamaño original
+                            # Volvemos al centrado con columnas
                             _, col_btn, _ = st.columns([1, 1, 1])
                             with col_btn:
                                 if st.button("Confirmar", key=f"b_{p['Id']}"):
@@ -224,15 +251,13 @@ with tabs[0]:
                         else: 
                             st.warning("🔒 Partido en juego / Finalizado. Esperando resultado.")
 
-# --- TAB 2: RANKING ---
 with tabs[1]:
     if not todos_usuarios:
         st.info("Aún no hay usuarios en el ranking.")
     else:
-        # Filtramos solo a los usuarios que ya tienen algún punto para el podio
+        # Filtramos a los que tienen > 0 puntos para el podio
         usuarios_con_puntos = [u for u in todos_usuarios if u['Puntos'] > 0]
         
-        # Si hay al menos un usuario con puntos, mostramos el podio
         if usuarios_con_puntos:
             st.markdown("<h3 style='text-align: center; margin-bottom: 30px; font-weight:800; color:#FFF;'>🏆 LÍDERES DEL MUNDIAL</h3>", unsafe_allow_html=True)
             col_oro, col_plata, col_bronce = st.columns(3)
@@ -244,16 +269,13 @@ with tabs[1]:
                 with col_bronce: st.markdown(f"<div class='podium-bronze'><h2 style='margin:0;'>🥉</h2><h4 style='margin:5px 0;'>{usuarios_con_puntos[2]['Nombre']}</h4><h5 style='margin:0;'>{usuarios_con_puntos[2]['Puntos']} pts</h5></div>", unsafe_allow_html=True)
             st.divider()
         else:
-            # Si nadie tiene puntos, mostramos un pequeño mensaje motivacional
             st.markdown("<div style='text-align: center; color: #8899A6; margin-bottom: 20px; font-style: italic;'>El podio aparecerá en cuanto comiencen a repartirse los primeros puntos. ¡Suerte a todos!</div>", unsafe_allow_html=True)
 
-        # La tabla general siempre se muestra
         st.markdown("<h4 style='color:#FFF;'>Clasificación Completa</h4>", unsafe_allow_html=True)
         
         df = pd.DataFrame(todos_usuarios)
         def medalla(i): return "🥇" if i==0 else "🥈" if i==1 else "🥉" if i==2 else f"{i+1}."
         
-        # Para la tabla, asignamos medallas solo si tienen puntos, si no, solo el número
         df['Pos'] = [medalla(i) if u['Puntos'] > 0 else f"{i+1}." for i, u in enumerate(todos_usuarios)]
         df['Jugador'] = df['Pos'] + " " + df['Nombre']
         max_p = int(df['Puntos'].max()) if df['Puntos'].max() > 0 else 10
