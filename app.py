@@ -55,9 +55,9 @@ st.markdown("""
     /* Tarjetas de Partido y Formularios */
     [data-testid="stVerticalBlockBorderWrapper"], [data-testid="stForm"] {
         background-color: #111A24 !important;
-        border-radius: 24px !important;
+        border-radius: 20px !important;
         border: 1px solid #1E2A38 !important;
-        box-shadow: 0 10px 30px rgba(0,0,0,0.4) !important;
+        box-shadow: 0 8px 24px rgba(0,0,0,0.3) !important;
         margin-bottom: 25px !important;
         padding: 15px !important;
         transition: 0.3s ease;
@@ -68,61 +68,38 @@ st.markdown("""
     }
     
     /* Textos dentro de la tarjeta */
-    .match-header { font-size: 0.8em; color: #8899A6; text-align: center; margin-bottom: 15px; font-weight: 800; letter-spacing: 1.5px; text-transform: uppercase; }
+    .match-header { font-size: 0.8em; color: #8899A6; text-align: center; margin-bottom: 15px; font-weight: 800; letter-spacing: 1px; text-transform: uppercase; }
     .team-name { font-size: 1.15em; font-weight: 700; color: #FFFFFF; }
     .score-box { background: linear-gradient(145deg, #1A2433, #151E28); border: 1px solid #2C3E50; border-radius: 10px; padding: 8px 16px; font-size: 1.4em; font-weight: 900; color: #00E676; text-align: center; display: inline-block; min-width: 70px; box-shadow: inset 0 2px 4px rgba(0,0,0,0.5);}
     
-    /* RADIO BUTTONS: Centrados en cápsula deportiva */
+    /* RADIO BUTTONS: Centrado simple y limpio */
     div[role="radiogroup"] {
         display: flex !important;
         justify-content: center !important;
-        align-items: center !important;
-        background-color: #1A2433;
-        padding: 12px 25px;
-        border-radius: 20px;
-        border: 1px solid #2C3E50;
-        margin: 0 auto 15px auto !important;
-        width: fit-content;
-        gap: 30px !important;
-        box-shadow: inset 0 2px 5px rgba(0,0,0,0.3);
+        gap: 15px !important;
     }
     
-    /* BOTONES GLOBALES (Confirmar y Entrar) */
-    div[data-testid="stButton"], div[data-testid="stFormSubmitButton"] {
-        display: flex !important;
-        justify-content: center !important;
-        width: 100% !important;
-    }
-    div[data-testid="stButton"] > button, div[data-testid="stFormSubmitButton"] > button { 
+    /* BOTONES GLOBALES */
+    div.stButton > button, div[data-testid="stFormSubmitButton"] > button { 
         background: linear-gradient(45deg, #00E676, #00C853) !important; 
         color: #060D13 !important; 
-        border-radius: 30px !important; 
+        border-radius: 20px !important; 
         font-weight: 800 !important; 
-        width: 60% !important; 
         border: none !important; 
-        padding: 12px !important; 
-        text-transform: uppercase !important;
-        letter-spacing: 1.5px !important;
-        transition: 0.3s !important; 
+        transition: 0.2s !important; 
         box-shadow: 0 4px 10px rgba(0,230,118,0.2) !important;
     }
-    div[data-testid="stButton"] > button:hover, div[data-testid="stFormSubmitButton"] > button:hover { 
-        transform: translateY(-3px) !important;
-        box-shadow: 0 6px 20px rgba(0,230,118,0.5) !important; 
+    div.stButton > button:hover, div[data-testid="stFormSubmitButton"] > button:hover { 
+        transform: translateY(-2px) !important;
+        box-shadow: 0 6px 15px rgba(0,230,118,0.4) !important; 
     }
     
     /* Podios */
-    .podium-gold { background: linear-gradient(135deg, #FFB300, #FF8F00); color: #FFF; padding: 20px; border-radius: 20px; text-align: center; margin-bottom: 15px; box-shadow: 0 10px 25px rgba(255,143,0,0.3); }
-    .podium-silver { background: linear-gradient(135deg, #B0BEC5, #78909C); color: #FFF; padding: 15px; border-radius: 20px; text-align: center; }
-    .podium-bronze { background: linear-gradient(135deg, #A1887F, #6D4C41); color: #FFF; padding: 15px; border-radius: 20px; text-align: center; }
+    .podium-gold { background: linear-gradient(135deg, #FFB300, #FF8F00); color: #FFF; padding: 20px; border-radius: 16px; text-align: center; margin-bottom: 15px; box-shadow: 0 8px 20px rgba(255,143,0,0.3); }
+    .podium-silver { background: linear-gradient(135deg, #B0BEC5, #78909C); color: #FFF; padding: 15px; border-radius: 16px; text-align: center; }
+    .podium-bronze { background: linear-gradient(135deg, #A1887F, #6D4C41); color: #FFF; padding: 15px; border-radius: 16px; text-align: center; }
     
-    /* OCULTAR ELEMENTOS DE STREAMLIT (MÉTODO SEGURO) */
-    #MainMenu, footer, [data-testid="stHeader"] { 
-        display: none !important; 
-    }
-    .viewerBadge_container__1QSob, .viewerBadge_link__1S137 {
-        display: none !important;
-    }
+    [data-testid="stDataFrameToolbar"], #MainMenu, footer { display: none !important; }
     </style>
     """, unsafe_allow_html=True)
 
@@ -133,8 +110,8 @@ if "Id_usuario" not in st.session_state:
     
     with col_login:
         st.markdown("""
-        <div style="text-align: center; margin-bottom: 30px;">
-            <h1 class="text-gradient" style="font-size: 3.5em; margin-bottom: 0;">FIFA 2026</h1>
+        <div style="text-align: center; margin-bottom: 25px;">
+            <h1 class="text-gradient" style="font-size: 3.2em; margin-bottom: 0;">FIFA 2026</h1>
             <h3 style="color: #FFF; font-weight: 800; letter-spacing: 2px; margin-top: 5px;">PORRA OFICIAL</h3>
             <p style="color: #8899A6; font-size: 0.95em;">Inicia sesión o regístrate para jugar</p>
         </div>
@@ -144,7 +121,10 @@ if "Id_usuario" not in st.session_state:
             nombre_u = st.text_input("👤 Usuario", placeholder="Tu nombre")
             pass_u = st.text_input("🔒 Contraseña", type="password", placeholder="Mínimo 1 carácter")
             st.write("") 
-            submit = st.form_submit_button("ENTRAR AL TORNEO")
+            
+            _, col_btn, _ = st.columns([1, 3, 1])
+            with col_btn:
+                submit = st.form_submit_button("ENTRAR AL TORNEO", use_container_width=True)
 
         if submit:
             if nombre_u.strip() and pass_u.strip():
@@ -207,6 +187,7 @@ with st.sidebar:
         st.session_state.clear()
         st.rerun()
 
+# Reloj oficial del servidor cuadrado con España (UTC+2)
 hora_actual_espana = datetime.now(timezone.utc) + timedelta(hours=2) 
 
 # --- 6. TABS PRINCIPALES ---
@@ -240,35 +221,40 @@ with tabs[0]:
                             iso_v = BANDERAS.get(p['Equipo_visitante'], "un")
                             st.markdown(f"<div style='text-align: left;'><img src='https://flagcdn.com/32x24/{iso_v}.png' style='border-radius:4px; box-shadow:0 2px 4px rgba(0,0,0,0.5); vertical-align: middle;'>&nbsp; <span class='team-name'>{p['Equipo_visitante']}</span></div>", unsafe_allow_html=True)
                         
-                        st.markdown("<hr style='margin: 20px 0px 15px 0px; border: none; border-top: 1px solid #1E2A38;'>", unsafe_allow_html=True)
+                        st.markdown("<hr style='margin: 15px 0px 15px 0px; border: none; border-top: 1px solid #1E2A38;'>", unsafe_allow_html=True)
                         
+                        # ZONA DE APUESTAS
                         if p.get('Resultado_real'):
-                            st.write("")
                             _, col_res, _ = st.columns([1, 4, 1])
                             with col_res:
                                 if p['Id'] in votos:
                                     if votos[p['Id']] == p['Resultado_real']: st.success(f"🎯 Acertaste: {votos[p['Id']]}")
                                     else: st.error(f"❌ Fallaste. Tu apuesta fue: {votos[p['Id']]}")
                                 else:
-                                    st.markdown("<div style='text-align: center; color: #8899A6; font-size:0.9em;'>Partido cerrado sin pronóstico</div>", unsafe_allow_html=True)
+                                    st.info("Partido cerrado sin pronóstico")
                                     
                         elif p['Id'] in votos:
-                            st.write("")
                             _, col_res, _ = st.columns([1, 4, 1])
                             with col_res:
                                 st.info(f"✅ Voto registrado: **{votos[p['Id']]}**")
                                     
                         elif fecha_partido > hora_actual_espana:
-                            pred = st.radio("Voto:", [p['Equipo_local'], 'Empate', p['Equipo_visitante']], key=f"r_{p['Id']}", horizontal=True, label_visibility="collapsed")
-                            valor_bd = 'X' if pred == 'Empate' else pred 
+                            # 1. COLUMNAS PARA CENTRAR LAS OPCIONES (RADIO)
+                            _, col_radio, _ = st.columns([1, 5, 1])
+                            with col_radio:
+                                pred = st.radio("Voto:", [p['Equipo_local'], 'Empate', p['Equipo_visitante']], key=f"r_{p['Id']}", horizontal=True, label_visibility="collapsed")
+                                valor_bd = 'X' if pred == 'Empate' else pred 
                             
-                            st.write("") 
+                            st.write("") # Pequeño margen entre opciones y botón
                             
-                            if st.button("Confirmar Apuesta", key=f"b_{p['Id']}"):
-                                supabase.table("Porras").upsert({"Id_usuario": st.session_state["Id_usuario"], "Id_partido": p["Id"], "Prediccion": valor_bd}).execute()
-                                st.rerun()
+                            # 2. COLUMNAS CONCÉNTRICAS PARA EL BOTÓN
+                            _, col_btn, _ = st.columns([1, 2, 1])
+                            with col_btn:
+                                if st.button("Confirmar", key=f"b_{p['Id']}", use_container_width=True):
+                                    supabase.table("Porras").upsert({"Id_usuario": st.session_state["Id_usuario"], "Id_partido": p["Id"], "Prediccion": valor_bd}).execute()
+                                    st.rerun()
                         else: 
-                            st.warning("🔒 Partido en juego / Finalizado. Esperando resultado oficial.")
+                            st.warning("🔒 Partido en juego / Finalizado. Esperando resultado.")
 
 with tabs[1]:
     if not todos_usuarios:
