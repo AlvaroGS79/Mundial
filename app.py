@@ -9,7 +9,7 @@ try:
     KEY = st.secrets["SUPABASE_KEY"]
 except:
     URL = "https://tu-url.supabase.co"
-    KEY = "tu-key" 
+    KEY = "sb_publishable_7yepF3GoDlp6yBv0w54U7g_uYpNBGF_" 
 
 supabase: Client = create_client(URL, KEY)
 
