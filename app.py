@@ -88,13 +88,12 @@ if st.session_state.get("Estado") == "Pendiente":
         st.session_state["Estado"] = res.data[0]["Estado"]; st.rerun()
     st.stop()
 
-# --- 5. CARGA DE DATOS (ORDEN POR CAMPO RESULTADO) ---
+# --- 5. CARGA DE DATOS (ORDEN INTELIGENTE) ---
 ADMIN_NOMBRE = "AGS"
 es_admin = st.session_state["Nombre"] == ADMIN_NOMBRE
 
 partidos_db = supabase.table("Partidos").select("*").order("Fecha_hora").execute().data
 
-# Separación manual para asegurar el orden (Sin resultado arriba, con resultado abajo)
 pendientes = []
 finalizados = []
 for p in partidos_db:
@@ -158,43 +157,61 @@ with tabs[1]:
     else:
         u_p = [u for u in usuarios_ranking if u['Puntos'] > 0]
         if u_p:
-            st.markdown("<h3 style='text-align: center;'><span class='text-gradient'>🏆 LÍDERES</span></h3>", unsafe_allow_html=True)
+            st.markdown("<h3 style='text-align: center; margin-bottom: 30px;'><span class='text-gradient'>🏆 LÍDERES DEL MUNDIAL</span></h3>", unsafe_allow_html=True)
             c1, c2, c3 = st.columns(3)
             with c1: st.markdown(f"<div class='podium-gold'>🥇<br>{u_p[0]['Nombre']}<br>{u_p[0]['Puntos']} pts</div>", unsafe_allow_html=True)
             if len(u_p) > 1:
                 with c2: st.markdown(f"<div class='podium-silver'>🥈<br>{u_p[1]['Nombre']}<br>{u_p[1]['Puntos']} pts</div>", unsafe_allow_html=True)
             if len(u_p) > 2:
                 with c3: st.markdown(f"<div class='podium-bronze'>🥉<br>{u_p[2]['Nombre']}<br>{u_p[2]['Puntos']} pts</div>", unsafe_allow_html=True)
+            st.divider()
         st.dataframe(pd.DataFrame(usuarios_ranking)[['Nombre', 'Puntos']], use_container_width=True, hide_index=True)
 
 if es_admin:
     with tabs[2]:
-        st.subheader("🛠️ Gestión de Administrador")
-        # 1. Gestión de Resultados
-        st.markdown("### ⚽ Cerrar Partidos")
+        st.subheader("🛠️ Panel de Control Administrador")
+        st.markdown("### ⚽ Gestionar Resultados")
         p_admin = [p for p in partidos_db if not p.get('Resultado_real') and datetime.fromisoformat(p['Fecha_hora']).replace(tzinfo=timezone.utc) < hora_actual_espana]
         if p_admin:
-            p_sel = st.selectbox("Selecciona partido finalizado:", p_admin, format_func=lambda x: f"{x['Equipo_local']} vs {x['Equipo_visitante']}")
+            p_sel = st.selectbox("Partido finalizado:", p_admin, format_func=lambda x: f"{x['Equipo_local']} vs {x['Equipo_visitante']}")
             gan = st.selectbox("Resultado final:", [p_sel['Equipo_local'], 'X', p_sel['Equipo_visitante']])
-            if st.button("GUARDAR RESULTADO Y REPARTIR PUNTOS", type="primary"):
+            if st.button("GUARDAR Y REPARTIR PUNTOS", type="primary"):
                 supabase.table("Partidos").update({"Resultado_real": gan}).eq("Id", p_sel['Id']).execute()
                 votos_p = supabase.table("Porras").select("*").eq("Id_partido", p_sel['Id']).execute().data
                 for v in votos_p:
                     if v['Prediccion'] == gan:
                         u_pts = supabase.table("Usuarios").select("Puntos").eq("Id", v['Id_usuario']).execute().data[0]['Puntos']
                         supabase.table("Usuarios").update({"Puntos": u_pts + 1}).eq("Id", v['Id_usuario']).execute()
-                st.success("¡Puntos repartidos!"); st.rerun()
-        else: st.success("No hay partidos pendientes de resultado.")
-
+                st.success("¡Resultados y puntos actualizados!"); st.rerun()
+        else: st.success("No hay partidos pendientes de cierre.")
+        
         st.divider()
-        # 2. Gestión de Pagos
-        st.markdown("### 💰 Validar Pagos")
+        st.markdown("### 💰 Validar Inscripciones")
         u_pend = supabase.table("Usuarios").select("*").eq("Estado", "Pendiente").execute().data
         if u_pend:
-            u_sel = st.selectbox("Usuario que ha pagado:", u_pend, format_func=lambda x: x['Nombre'])
-            if st.button("MARCAR COMO PAGADO"):
+            u_sel = st.selectbox("Activar usuario:", u_pend, format_func=lambda x: x['Nombre'])
+            if st.button("VALIDAR PAGO"):
                 supabase.table("Usuarios").update({"Estado": "Pagado"}).eq("Id", u_sel['Id']).execute()
-                st.success(f"¡{u_sel['Nombre']} activado!"); st.rerun()
-        else: st.write("No hay pagos pendientes.")
+                st.success(f"¡{u_sel['Nombre']} ya puede jugar!"); st.rerun()
+        else: st.write("No hay solicitudes de pago pendientes.")
 else:
-    with tabs[2]: st.markdown("### 📜 Reglas\n* 1 punto por acierto.\n* Cierre al inicio del partido.")
+    with tabs[2]:
+        st.markdown("""
+        ### 📜 Reglas de la Porra Mundial 2026
+        
+        1. **Inscripción:** El coste de participación es de **20€**. Solo los usuarios validados por el administrador podrán participar y puntuar.
+        
+        2. **Sistema de Puntuación:**
+            * Recibes **1 punto** por acertar el resultado final (1, X o 2).
+            * Los puntos se reparten automáticamente en cuanto el administrador introduce el resultado oficial.
+        
+        3. **Cierre de Apuestas:**
+            * Las apuestas se cierran automáticamente en el instante en que comienza cada partido.
+            * Una vez cerrado, no podrás modificar tu elección.
+        
+        4. **Fases Eliminatorias:**
+            * Los equipos de los cruces (Octavos, Cuartos, etc.) se irán actualizando automáticamente según avance la competición real.
+            * En eliminatorias, el resultado que cuenta es el del final del tiempo reglamentario (incluyendo prórroga si la hay, pero excluyendo tandas de penaltis si el partido acaba en empate).
+        
+        5. **Premios:** El bote total recaudado se repartirá entre los primeros clasificados al finalizar el torneo.
+        """)
