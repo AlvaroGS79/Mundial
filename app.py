@@ -31,7 +31,7 @@ BANDERAS = {
     "Nigeria": "ng", "Camerún": "cm", "Jamaica": "jm", "Costa Rica": "cr", "Grecia": "gr"
 }
 
-# --- 2. CONFIGURACIÓN Y ESTILOS CSS ESTILO BESOCCER ---
+# --- 2. CONFIGURACIÓN Y ESTILOS CSS PRO ---
 st.set_page_config(page_title="Porra Mundial 2026", layout="centered", page_icon="⚽")
 
 st.markdown("""
@@ -39,62 +39,82 @@ st.markdown("""
     /* Fondo principal modo oscuro */
     .stApp { background-color: #060D13; color: #E1E8ED; font-family: 'Inter', sans-serif; }
     
-    /* 1. ESTILIZAR EL CONTENEDOR NATIVO DE STREAMLIT COMO TARJETA */
-    [data-testid="stVerticalBlockBorderWrapper"] {
-        background-color: #111A24 !important;
-        border-radius: 16px !important;
-        border: 1px solid #1E2A38 !important;
-        box-shadow: 0 8px 24px rgba(0,0,0,0.3) !important;
-        margin-bottom: 20px !important;
-        padding: 5px !important;
+    /* Gradiente de texto Pro */
+    .text-gradient {
+        background: -webkit-linear-gradient(45deg, #00E676, #00B0FF);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        font-weight: 900;
     }
     
-    /* Estilo nativo para el formulario de Login */
-    [data-testid="stForm"] {
+    /* Estilizar Pestañas (Tabs) */
+    [data-baseweb="tab-list"] { gap: 10px; }
+    [data-baseweb="tab"] { background-color: transparent !important; color: #8899A6 !important; font-weight: 600 !important; }
+    [data-baseweb="tab"][aria-selected="true"] { color: #00E676 !important; border-bottom: 2px solid #00E676 !important; }
+    
+    /* Tarjetas de Partido y Formularios */
+    [data-testid="stVerticalBlockBorderWrapper"], [data-testid="stForm"] {
         background-color: #111A24 !important;
         border-radius: 24px !important;
         border: 1px solid #1E2A38 !important;
-        box-shadow: 0 15px 35px rgba(0,0,0,0.5) !important;
-        padding: 30px !important;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.4) !important;
+        margin-bottom: 25px !important;
+        padding: 15px !important;
+        transition: 0.3s ease;
+    }
+    [data-testid="stVerticalBlockBorderWrapper"]:hover {
+        border-color: #00E67644 !important;
+        box-shadow: 0 10px 30px rgba(0,230,118,0.15) !important;
     }
     
     /* Textos dentro de la tarjeta */
-    .match-header { font-size: 0.75em; color: #8899A6; text-align: center; margin-bottom: 15px; font-weight: bold; letter-spacing: 1px; text-transform: uppercase; }
-    .team-name { font-size: 1.1em; font-weight: 600; color: #FFFFFF; }
-    .score-box { background: linear-gradient(145deg, #1A2433, #151E28); border: 1px solid #2C3E50; border-radius: 8px; padding: 6px 12px; font-size: 1.3em; font-weight: 800; color: #00E676; text-align: center; display: inline-block; min-width: 60px;}
+    .match-header { font-size: 0.8em; color: #8899A6; text-align: center; margin-bottom: 15px; font-weight: 800; letter-spacing: 1.5px; text-transform: uppercase; }
+    .team-name { font-size: 1.15em; font-weight: 700; color: #FFFFFF; }
+    .score-box { background: linear-gradient(145deg, #1A2433, #151E28); border: 1px solid #2C3E50; border-radius: 10px; padding: 8px 16px; font-size: 1.4em; font-weight: 900; color: #00E676; text-align: center; display: inline-block; min-width: 70px; box-shadow: inset 0 2px 4px rgba(0,0,0,0.5);}
     
-    /* 2. CENTRAR LOS RADIO BUTTONS */
+    /* RADIO BUTTONS: Centrados en cápsula deportiva */
     div[role="radiogroup"] {
         display: flex !important;
         justify-content: center !important;
-        flex-wrap: wrap !important;
-        gap: 20px !important;
-        margin-bottom: 10px !important;
+        align-items: center !important;
+        background-color: #1A2433;
+        padding: 12px 25px;
+        border-radius: 20px;
+        border: 1px solid #2C3E50;
+        margin: 0 auto 15px auto !important;
+        width: fit-content;
+        gap: 30px !important;
+        box-shadow: inset 0 2px 5px rgba(0,0,0,0.3);
     }
     
-    /* ESTILO BOTÓN CONFIRMAR Y LOGIN */
+    /* BOTONES GLOBALES (Confirmar y Entrar) */
+    div[data-testid="stButton"], div[data-testid="stFormSubmitButton"] {
+        display: flex !important;
+        justify-content: center !important;
+        width: 100% !important;
+    }
     div[data-testid="stButton"] > button, div[data-testid="stFormSubmitButton"] > button { 
-        background-color: #00E676 !important; 
+        background: linear-gradient(45deg, #00E676, #00C853) !important; 
         color: #060D13 !important; 
         border-radius: 30px !important; 
         font-weight: 800 !important; 
-        width: 100% !important; 
+        width: 60% !important; /* Ancho perfecto */
         border: none !important; 
         padding: 12px !important; 
         text-transform: uppercase !important;
-        letter-spacing: 1px !important;
+        letter-spacing: 1.5px !important;
         transition: 0.3s !important; 
+        box-shadow: 0 4px 10px rgba(0,230,118,0.2) !important;
     }
     div[data-testid="stButton"] > button:hover, div[data-testid="stFormSubmitButton"] > button:hover { 
-        background-color: #00C853 !important; 
-        transform: translateY(-2px) !important;
-        box-shadow: 0 4px 15px rgba(0,230,118,0.4) !important; 
+        transform: translateY(-3px) !important;
+        box-shadow: 0 6px 20px rgba(0,230,118,0.5) !important; 
     }
     
     /* Podios */
-    .podium-gold { background: linear-gradient(135deg, #FFB300, #FF8F00); color: #FFF; padding: 20px; border-radius: 16px; text-align: center; margin-bottom: 15px; box-shadow: 0 10px 20px rgba(255,143,0,0.2); }
-    .podium-silver { background: linear-gradient(135deg, #B0BEC5, #78909C); color: #FFF; padding: 15px; border-radius: 16px; text-align: center; }
-    .podium-bronze { background: linear-gradient(135deg, #A1887F, #6D4C41); color: #FFF; padding: 15px; border-radius: 16px; text-align: center; }
+    .podium-gold { background: linear-gradient(135deg, #FFB300, #FF8F00); color: #FFF; padding: 20px; border-radius: 20px; text-align: center; margin-bottom: 15px; box-shadow: 0 10px 25px rgba(255,143,0,0.3); }
+    .podium-silver { background: linear-gradient(135deg, #B0BEC5, #78909C); color: #FFF; padding: 15px; border-radius: 20px; text-align: center; }
+    .podium-bronze { background: linear-gradient(135deg, #A1887F, #6D4C41); color: #FFF; padding: 15px; border-radius: 20px; text-align: center; }
     
     [data-testid="stDataFrameToolbar"], #MainMenu, footer { display: none !important; }
     </style>
@@ -106,26 +126,19 @@ if "Id_usuario" not in st.session_state:
     _, col_login, _ = st.columns([1, 1.5, 1])
     
     with col_login:
-        # Título Pro con Gradiente
         st.markdown("""
         <div style="text-align: center; margin-bottom: 30px;">
-            <h1 style="font-size: 3.5em; font-weight: 900; background: -webkit-linear-gradient(45deg, #00E676, #00B0FF); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 0;">FIFA 2026</h1>
-            <h3 style="color: #FFF; font-weight: 800; letter-spacing: 2px; margin-top: 5px;">PORRA MUNDIAL</h3>
+            <h1 class="text-gradient" style="font-size: 3.5em; margin-bottom: 0;">FIFA 2026</h1>
+            <h3 style="color: #FFF; font-weight: 800; letter-spacing: 2px; margin-top: 5px;">PORRA OFICIAL</h3>
             <p style="color: #8899A6; font-size: 0.95em;">Inicia sesión o regístrate para jugar</p>
         </div>
         """, unsafe_allow_html=True)
         
-        # Formulario nativo (Elimina las cajas vacías)
         with st.form("login_form", border=False):
-            nombre_u = st.text_input("👤 Usuario", placeholder="Nombre y Apellido")
-            pass_u = st.text_input("🔒 Contraseña", type="password", placeholder="Contraseña")
-            
-            st.write("") # Espaciador
-            
-            # Botón centrado usando columnas dentro del formulario
-            _, col_btn, _ = st.columns([1, 2, 1])
-            with col_btn:
-                submit = st.form_submit_button("ENTRAR / JUGAR", use_container_width=True)
+            nombre_u = st.text_input("👤 Usuario", placeholder="Tu nombre")
+            pass_u = st.text_input("🔒 Contraseña", type="password", placeholder="Mínimo 1 carácter")
+            st.write("") 
+            submit = st.form_submit_button("ENTRAR AL TORNEO")
 
         if submit:
             if nombre_u.strip() and pass_u.strip():
@@ -175,7 +188,7 @@ fases_existentes = sorted(list(set(p["Fase_Visual"] for p in partidos_raw)),
                           key=lambda x: orden_fases.index(x) if x in orden_fases else 99)
 
 with st.sidebar:
-    st.markdown(f"<h2 style='text-align: center; color:#FFF;'>👤 {st.session_state['Nombre']}</h2>", unsafe_allow_html=True)
+    st.markdown(f"<h2 style='text-align: center;'><span class='text-gradient'>👤 {st.session_state['Nombre']}</span></h2>", unsafe_allow_html=True)
     res_yo = [u for u in todos_usuarios_raw if u['Id'] == st.session_state['Id_usuario']]
     puntos_yo = res_yo[0]['Puntos'] if res_yo else 0
     pos_display = "Admin" if es_admin else f"{next((i + 1 for i, u in enumerate(todos_usuarios) if u['Id'] == st.session_state['Id_usuario']), '-')}º"
@@ -236,18 +249,14 @@ with tabs[0]:
                             st.info(f"✅ Voto registrado: **{votos[p['Id']]}**")
                                     
                         elif fecha_partido > hora_actual_espana:
-                            # Se centran solos gracias al CSS
+                            # Se centran solos y se envuelven en una cápsula gracias al nuevo CSS
                             pred = st.radio("Voto:", [p['Equipo_local'], 'Empate', p['Equipo_visitante']], key=f"r_{p['Id']}", horizontal=True, label_visibility="collapsed")
                             valor_bd = 'X' if pred == 'Empate' else pred 
                             
-                            st.write("") 
-                            
-                            # Volvemos al centrado con columnas
-                            _, col_btn, _ = st.columns([1, 1, 1])
-                            with col_btn:
-                                if st.button("Confirmar", key=f"b_{p['Id']}"):
-                                    supabase.table("Porras").upsert({"Id_usuario": st.session_state["Id_usuario"], "Id_partido": p["Id"], "Prediccion": valor_bd}).execute()
-                                    st.rerun()
+                            # El botón se centra solo con el nuevo ancho del 60% sin columnas extrañas
+                            if st.button("Confirmar Apuesta", key=f"b_{p['Id']}"):
+                                supabase.table("Porras").upsert({"Id_usuario": st.session_state["Id_usuario"], "Id_partido": p["Id"], "Prediccion": valor_bd}).execute()
+                                st.rerun()
                         else: 
                             st.warning("🔒 Partido en juego / Finalizado. Esperando resultado.")
 
@@ -255,11 +264,10 @@ with tabs[1]:
     if not todos_usuarios:
         st.info("Aún no hay usuarios en el ranking.")
     else:
-        # Filtramos a los que tienen > 0 puntos para el podio
         usuarios_con_puntos = [u for u in todos_usuarios if u['Puntos'] > 0]
         
         if usuarios_con_puntos:
-            st.markdown("<h3 style='text-align: center; margin-bottom: 30px; font-weight:800; color:#FFF;'>🏆 LÍDERES DEL MUNDIAL</h3>", unsafe_allow_html=True)
+            st.markdown("<h3 style='text-align: center; margin-bottom: 30px;'><span class='text-gradient'>🏆 LÍDERES DEL MUNDIAL</span></h3>", unsafe_allow_html=True)
             col_oro, col_plata, col_bronce = st.columns(3)
             if len(usuarios_con_puntos) > 0:
                 with col_oro: st.markdown(f"<div class='podium-gold'><h1 style='margin:0;'>🥇</h1><h3 style='margin:5px 0;'>{usuarios_con_puntos[0]['Nombre']}</h3><h4 style='margin:0;'>{usuarios_con_puntos[0]['Puntos']} pts</h4></div>", unsafe_allow_html=True)
@@ -321,7 +329,7 @@ if es_admin:
 else:
     with tabs[2]:
         st.markdown("""
-        ### 📜 Reglas de la Porra del Mundial
+        ### 📜 Reglas de la Porra Oficial
         * **Puntuación:** Recibes **1 punto** por cada pronóstico correcto (1, X, 2).
         * **Cierre Automático:** Las apuestas se bloquean en el instante exacto en que arranca el partido (Hora Peninsular de España). No se admiten votos de última hora.
         * **Actualizaciones:** Los cruces de eliminatorias (Octavos, etc.) se irán actualizando automáticamente en la app según avancen los equipos en la realidad.
