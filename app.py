@@ -99,9 +99,17 @@ st.markdown("""
     .podium-silver { background: linear-gradient(135deg, #B0BEC5, #78909C); color: #FFF; padding: 15px; border-radius: 16px; text-align: center; }
     .podium-bronze { background: linear-gradient(135deg, #A1887F, #6D4C41); color: #FFF; padding: 15px; border-radius: 16px; text-align: center; }
     
-    [data-testid="stDataFrameToolbar"], #MainMenu, footer { display: none !important; }
-    </style>
-    """, unsafe_allow_html=True)
+    [data-testid="stDataFrameToolbar"], 
+#MainMenu, 
+footer, 
+header,
+.stApp a[href*="streamlit.io/cloud"] { 
+    display: none !important; 
+}
+/* Ocultar específicamente el botón Manage App (Viewer badge) */
+.viewerBadge_container__1QSob, .viewerBadge_link__1S137, [data-testid="stAppViewContainer"] > div:last-child {
+    display: none !important;
+}
 
 # --- 3. LÓGICA DE ACCESO (LOGIN) ---
 if "Id_usuario" not in st.session_state:
