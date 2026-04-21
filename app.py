@@ -79,7 +79,7 @@ st.markdown("""
         gap: 15px !important;
     }
     
-    /* BOTONES GLOBALES */
+    /* BOTONES GLOBALES (Confirmar y Login) */
     div.stButton > button, div[data-testid="stFormSubmitButton"] > button { 
         background: linear-gradient(45deg, #00E676, #00C853) !important; 
         color: #060D13 !important; 
@@ -99,17 +99,19 @@ st.markdown("""
     .podium-silver { background: linear-gradient(135deg, #B0BEC5, #78909C); color: #FFF; padding: 15px; border-radius: 16px; text-align: center; }
     .podium-bronze { background: linear-gradient(135deg, #A1887F, #6D4C41); color: #FFF; padding: 15px; border-radius: 16px; text-align: center; }
     
+    /* OCULTAR ELEMENTOS DE STREAMLIT (NINJA MODE) */
     [data-testid="stDataFrameToolbar"], 
-#MainMenu, 
-footer, 
-header,
-.stApp a[href*="streamlit.io/cloud"] { 
-    display: none !important; 
-}
-/* Ocultar específicamente el botón Manage App (Viewer badge) */
-.viewerBadge_container__1QSob, .viewerBadge_link__1S137, [data-testid="stAppViewContainer"] > div:last-child {
-    display: none !important;
-}
+    #MainMenu, 
+    footer, 
+    header,
+    .stApp a[href*="streamlit.io/cloud"] { 
+        display: none !important; 
+    }
+    .viewerBadge_container__1QSob, .viewerBadge_link__1S137, [data-testid="stAppViewContainer"] > div:last-child {
+        display: none !important;
+    }
+    </style>
+    """, unsafe_allow_html=True)
 
 # --- 3. LÓGICA DE ACCESO (LOGIN) ---
 if "Id_usuario" not in st.session_state:
