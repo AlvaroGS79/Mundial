@@ -132,7 +132,7 @@ for p in partidos_raw:
 
 todos_usuarios_raw = supabase.table("Usuarios").select("Id, Nombre, Puntos").order("Puntos", desc=True).execute().data
 dict_nombres = {u['Id']: u['Nombre'] for u in todos_usuarios_raw}
-usuarios_ranking = [u for u in todos_usuarios_raw if u["Nombre"] != ADMIN_NOMBRE]
+usuarios_ranking = todos_usuarios_raw
 
 hora_actual_espana = datetime.now(timezone.utc) + timedelta(hours=2) 
 todas_porras = supabase.table("Porras").select("*").execute().data
