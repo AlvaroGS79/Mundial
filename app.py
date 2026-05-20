@@ -112,13 +112,13 @@ es_admin = st.session_state["Nombre"] == ADMIN_NOMBRE
 
 partidos_db = supabase.table("Partidos").select("*").execute().data
 
-# Ordenamiento por Grupo (Ascendente) y Fecha (Descendente)
+# Ordenamiento por Grupo (Ascendente) y Fecha (Ascendente)
 def sort_matches(p):
     try:
         dt = datetime.fromisoformat(p['Fecha_hora']).timestamp()
     except:
-        dt = 0
-    return (p['Fase'], -dt)
+        dt = float('inf')
+    return (p['Fase'], dt)
 
 partidos_raw = sorted(partidos_db, key=sort_matches)
 
@@ -132,8 +132,6 @@ for p in partidos_raw:
 
 todos_usuarios_raw = supabase.table("Usuarios").select("Id, Nombre, Puntos").order("Puntos", desc=True).execute().data
 dict_nombres = {u['Id']: u['Nombre'] for u in todos_usuarios_raw}
-
-# MODIFICACIÓN CLAVE: Ya no excluimos al ADMIN del ranking
 usuarios_ranking = todos_usuarios_raw
 
 hora_actual_espana = datetime.now(timezone.utc) + timedelta(hours=2) 
