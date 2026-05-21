@@ -3,11 +3,14 @@ from supabase import create_client, Client
 from datetime import datetime, timezone, timedelta
 import pandas as pd
 
+# --- CONSTANTES DE LÍNEAS DE APUESTA ---
+LINEA_CORNERS = 8.5
+LINEA_TARJETAS = 4.5
+LINEA_FALTAS = 22.5
+
 # --- FUNCIÓN AYUDANTE: INTERPRETAR RESULTADOS EXACTOS ---
 def get_outcome(score_str):
-    """Convierte un resultado '2-1' en '1', 'X', o '2' para saber quién gana."""
-    if not score_str or '-' not in str(score_str): 
-        return None
+    if not score_str or '-' not in str(score_str): return None
     try:
         l, v = map(int, str(score_str).replace(' ', '').split('-'))
         if l > v: return '1'
@@ -44,7 +47,7 @@ BANDERAS = {
     "Nigeria": "ng", "Camerún": "cm", "Jamaica": "jm", "Costa Rica": "cr", "Grecia": "gr"
 }
 
-# --- 2. CONFIGURACIÓN Y ESTILOS CSS PRO ---
+# --- 2. CONFIGURACIÓN Y ESTILOS CSS ---
 st.set_page_config(page_title="Porra Mundial 2026", layout="centered", page_icon="⚽")
 
 st.markdown("""
@@ -58,7 +61,6 @@ st.markdown("""
     .match-header { font-size: 0.8em; color: #8899A6; text-align: center; margin-bottom: 15px; font-weight: 800; letter-spacing: 1.5px; text-transform: uppercase; }
     .team-name { font-size: 1.15em; font-weight: 700; color: #FFFFFF; }
     .score-box { background: linear-gradient(145deg, #1A2433, #151E28); border: 1px solid #2C3E50; border-radius: 10px; padding: 8px 16px; font-size: 1.4em; font-weight: 900; color: #00E676; text-align: center; display: inline-block; min-width: 70px; }
-    
     .stats-mini { background: #0D141B; border-radius: 10px; padding: 10px; margin-top: 15px; margin-bottom: 15px; border: 1px solid #1E2A38; font-size: 0.9em; text-align: center; font-weight: 600; color: #E1E8ED; }
     .flag-mini { width: 18px; border-radius: 2px; margin-right: 5px; vertical-align: middle; }
     
@@ -66,7 +68,6 @@ st.markdown("""
     .podium-gold { background: linear-gradient(135deg, #FFB300, #FF8F00); color: #FFF; padding: 20px; border-radius: 20px; text-align: center; margin-bottom: 15px; }
     .podium-silver { background: linear-gradient(135deg, #B0BEC5, #78909C); color: #FFF; padding: 15px; border-radius: 20px; text-align: center; }
     .podium-bronze { background: linear-gradient(135deg, #A1887F, #6D4C41); color: #FFF; padding: 15px; border-radius: 20px; text-align: center; }
-    
     [data-testid="stHeader"] { background: rgba(0,0,0,0) !important; }
     footer, .viewerBadge_container__1QSob { display: none !important; }
     </style>
@@ -122,7 +123,6 @@ def sort_matches(p):
 
 partidos_raw = sorted(partidos_db, key=sort_matches)
 
-# Mover los finalizados al final visualmente
 pendientes = [p for p in partidos_raw if not p.get('Resultado_real')]
 finalizados = [p for p in partidos_raw if p.get('Resultado_real')]
 partidos_raw = pendientes + finalizados
@@ -144,8 +144,7 @@ with st.sidebar:
     if st.button("🚪 Cerrar Sesión"): st.session_state.clear(); st.rerun()
 
 # --- LÓGICA DE PANTALLA DE DETALLE DE PARTIDO ---
-if "view_partido" not in st.session_state:
-    st.session_state["view_partido"] = None
+if "view_partido" not in st.session_state: st.session_state["view_partido"] = None
 
 if st.session_state["view_partido"]:
     p_id = st.session_state["view_partido"]
@@ -165,11 +164,21 @@ if st.session_state["view_partido"]:
             st.markdown(f"<div style='display: flex; justify-content: space-between; align-items: center;'><div style='display: flex; align-items: center; justify-content: flex-end; flex: 1; text-align: right; padding-right: 10px;'><span class='team-name'>{p['Equipo_local']}</span><img src='https://flagcdn.com/32x24/{iso_l}.png' style='margin-left: 8px; border-radius: 4px;'></div><div style='flex-shrink: 0;'><span class='score-box'>{res_txt}</span></div><div style='display: flex; align-items: center; justify-content: flex-start; flex: 1; text-align: left; padding-left: 10px;'><img src='https://flagcdn.com/32x24/{iso_v}.png' style='margin-right: 8px; border-radius: 4px;'><span class='team-name'>{p['Equipo_visitante']}</span></div></div>", unsafe_allow_html=True)
             st.markdown("<hr style='margin: 15px 0px; border: none; border-top: 1px solid #1E2A38;'>", unsafe_allow_html=True)
             
+            # Mostrar datos reales si el partido ha terminado
+            if p.get("Corners_real") is not None:
+                st.markdown(f"<p style='text-align:center; color:#8899A6;'>Estadísticas Finales: 🚩 {p['Corners_real']} | 🟨 {p['Tarjetas_real']} | 🛑 {p['Faltas_real']}</p>", unsafe_allow_html=True)
+            
             st.subheader("📊 Pronósticos de la comunidad")
             votos_p = [v for v in todas_porras if v['Id_partido'] == p['Id']]
             
             if votos_p:
-                df_votos = pd.DataFrame([{"Jugador": dict_nombres.get(v['Id_usuario'], "Anon"), "Apuesta": v['Prediccion']} for v in votos_p])
+                df_votos = pd.DataFrame([{
+                    "Jugador": dict_nombres.get(v['Id_usuario'], "Anon"), 
+                    "Resultado": v['Prediccion'],
+                    "Córners": v.get('Pred_Corners', '-'),
+                    "Tarjetas": v.get('Pred_Tarjetas', '-'),
+                    "Faltas": v.get('Pred_Faltas', '-')
+                } for v in votos_p])
                 st.dataframe(df_votos, use_container_width=True, hide_index=True)
             else:
                 st.info("Nadie votó en este partido.")
@@ -180,7 +189,6 @@ if st.session_state["view_partido"]:
 orden_fases = ["Fase de Grupos", "Dieciseisavos", "Octavos", "Cuartos", "Semifinales", "3º y 4º Puesto", "Final"]
 fases_existentes = sorted(list(set(p["Fase_Visual"] for p in partidos_raw)), key=lambda x: orden_fases.index(x) if x in orden_fases else 99)
 
-# Pestañas principales
 tabs_labels = ["📅 Partidos", "🏆 Ranking", "📜 Reglas"]
 if es_admin: tabs_labels.append("🛠️ Admin")
 tabs = st.tabs(tabs_labels)
@@ -192,7 +200,8 @@ with tabs[0]:
     if not partidos_raw: st.info("Cargando calendario...")
     else:
         sub_tabs = st.tabs(fases_existentes)
-        votos_usuario = {v['Id_partido']: v['Prediccion'] for v in todas_porras if v['Id_usuario'] == st.session_state["Id_usuario"]}
+        # Diccionario mejorado para guardar toda la predicción del usuario
+        votos_usuario = {v['Id_partido']: v for v in todas_porras if v['Id_usuario'] == st.session_state["Id_usuario"]}
         
         for i, fase_tab in enumerate(fases_existentes):
             with sub_tabs[i]:
@@ -212,22 +221,19 @@ with tabs[0]:
                             res_real = p['Resultado_real']
                             out_real = get_outcome(res_real)
                             if ha_votado:
-                                mi_voto = votos_usuario[p['Id']]
+                                mi_voto = votos_usuario[p['Id']]['Prediccion']
                                 out_voto = get_outcome(mi_voto)
-                                if mi_voto == res_real: 
-                                    st.success(f"🎯 ¡Pleno! Acertaste el resultado exacto ({mi_voto}). +15 pts")
-                                elif out_voto == out_real and out_real is not None:
-                                    st.success(f"✅ Resultado final acertado (Pusiste {mi_voto}, fue {res_real}). +5 pts")
-                                else: 
-                                    st.error(f"❌ Fallaste. (Pusiste {mi_voto}, fue {res_real})")
+                                if mi_voto == res_real: st.success(f"🎯 ¡Pleno al marcador! ({mi_voto}). +15 pts")
+                                elif out_voto == out_real and out_real is not None: st.success(f"✅ Resultado final acertado (Pusiste {mi_voto}). +5 pts")
+                                else: st.error(f"❌ Fallaste (Pusiste {mi_voto})")
                             else: st.info(f"Finalizado: {res_real}")
                         
                         elif ha_votado:
-                            st.info(f"✅ Tu pronóstico: **{votos_usuario[p['Id']]}**")
+                            v = votos_usuario[p['Id']]
+                            st.info(f"✅ Tu pronóstico: **{v['Prediccion']}** | 🚩 {v.get('Pred_Corners','-')} | 🟨 {v.get('Pred_Tarjetas','-')} | 🛑 {v.get('Pred_Faltas','-')}")
                         
                         elif fecha_p > hora_actual_espana:
-                            # Interfaz de entrada para resultado exacto
-                            st.markdown("<p style='text-align:center; font-size: 0.9em; color:#8899A6; margin-bottom:5px;'>Escribe tu resultado exacto</p>", unsafe_allow_html=True)
+                            st.markdown("<p style='text-align:center; font-size: 0.9em; color:#8899A6; margin-bottom:5px; font-weight:bold;'>1. Marcador Exacto</p>", unsafe_allow_html=True)
                             c1, c2, c3 = st.columns([1, 1.5, 1])
                             with c2:
                                 sub_c1, sub_c2, sub_c3 = st.columns([2, 1, 2])
@@ -235,9 +241,26 @@ with tabs[0]:
                                 with sub_c2: st.markdown("<div style='text-align:center; padding-top:5px; font-weight:bold;'>-</div>", unsafe_allow_html=True)
                                 with sub_c3: g_vis = st.number_input("V", min_value=0, max_value=20, step=1, key=f"gv_{p['Id']}", label_visibility="collapsed")
                             
+                            st.markdown(f"<p style='text-align:center; font-size: 0.9em; color:#8899A6; margin-top:15px; margin-bottom:5px; font-weight:bold;'>2. Mercados Extra (+2 pts c/u)</p>", unsafe_allow_html=True)
+                            ex1, ex2, ex3 = st.columns(3)
+                            with ex1: pred_c = st.selectbox(f"🚩 Córners (+{LINEA_CORNERS})", ["-", "Más", "Menos"], key=f"c_{p['Id']}")
+                            with ex2: pred_t = st.selectbox(f"🟨 Tarjetas (+{LINEA_TARJETAS})", ["-", "Más", "Menos"], key=f"t_{p['Id']}")
+                            with ex3: pred_f = st.selectbox(f"🛑 Faltas (+{LINEA_FALTAS})", ["-", "Más", "Menos"], key=f"f_{p['Id']}")
+
                             if st.button("Confirmar Pronóstico", key=f"b_{p['Id']}", use_container_width=True):
                                 val_bd = f"{g_loc}-{g_vis}"
-                                supabase.table("Porras").upsert({"Id_usuario": st.session_state["Id_usuario"], "Id_partido": p["Id"], "Prediccion": val_bd}).execute()
+                                c_bd = pred_c if pred_c != "-" else None
+                                t_bd = pred_t if pred_t != "-" else None
+                                f_bd = pred_f if pred_f != "-" else None
+                                
+                                supabase.table("Porras").upsert({
+                                    "Id_usuario": st.session_state["Id_usuario"], 
+                                    "Id_partido": p["Id"], 
+                                    "Prediccion": val_bd,
+                                    "Pred_Corners": c_bd,
+                                    "Pred_Tarjetas": t_bd,
+                                    "Pred_Faltas": f_bd
+                                }).execute()
                                 st.rerun()
                         else: st.warning("🔒 Cerrado.")
 
@@ -251,7 +274,7 @@ with tabs[0]:
                                 
                                 st.markdown(f"""
                                 <div class='stats-mini'>
-                                    <span style='color:#8899A6; font-size:0.85em; font-weight:400; margin-right:10px;'>Tendencia ({n_total} votos):</span><br>
+                                    <span style='color:#8899A6; font-size:0.85em; font-weight:400; margin-right:10px;'>Tendencia Marcador ({n_total} votos):</span><br>
                                     <img src='https://flagcdn.com/16x12/{iso_l}.png' class='flag-mini'> {p_l:.0%} &nbsp;&nbsp;|&nbsp;&nbsp; 
                                     🤝 {p_x:.0%} &nbsp;&nbsp;|&nbsp;&nbsp; 
                                     <img src='https://flagcdn.com/16x12/{iso_v}.png' class='flag-mini'> {p_v:.0%}
@@ -259,13 +282,13 @@ with tabs[0]:
                                 """, unsafe_allow_html=True)
                                 
                                 if fecha_p <= hora_actual_espana:
-                                    if st.button("🔍 Ver quién ha votado", key=f"btn_det_{p['Id']}", use_container_width=True):
+                                    if st.button("🔍 Ver detalles y mercados extra", key=f"btn_det_{p['Id']}", use_container_width=True):
                                         st.session_state["view_partido"] = p['Id']
                                         st.rerun()
                                 else:
-                                    st.markdown("<p style='font-size:0.7em; color:#8899A6; text-align:center; font-style:italic;'>La lista de votos se desbloquea al inicio del partido.</p>", unsafe_allow_html=True)
+                                    st.markdown("<p style='font-size:0.7em; color:#8899A6; text-align:center; font-style:italic;'>Los pronósticos completos se revelan al inicio.</p>", unsafe_allow_html=True)
                         elif fecha_p > hora_actual_espana:
-                            st.markdown("<p style='font-size:0.75em; color:#556677; text-align:center; margin-top:5px;'>Vota para descubrir la tendencia de la comunidad 🗳️</p>", unsafe_allow_html=True)
+                            st.markdown("<p style='font-size:0.75em; color:#556677; text-align:center; margin-top:5px;'>Vota para descubrir la tendencia 🗳️</p>", unsafe_allow_html=True)
 
 # ================================
 # TAB 2: RANKING DINÁMICO POR FASES
@@ -274,27 +297,41 @@ with tabs[1]:
     if not usuarios_ranking: 
         st.info("Sin usuarios.")
     else:
-        # Cálculo dinámico para la separación por fases
         pts_data = {u['Id']: {"Nombre": u['Nombre'], "Global": 0} for u in usuarios_ranking}
         for f in fases_existentes:
             for uid in pts_data: pts_data[uid][f] = 0
                 
         for p in partidos_raw:
             res_real = p.get('Resultado_real')
+            c_real = p.get('Corners_real')
+            t_real = p.get('Tarjetas_real')
+            f_real = p.get('Faltas_real')
+            
             if res_real and '-' in str(res_real):
                 out_real = get_outcome(res_real)
                 fase_val = p["Fase_Visual"]
+                
                 for v in todas_porras:
                     if v['Id_partido'] == p['Id'] and v['Id_usuario'] in pts_data:
+                        pts_partido = 0
+                        
+                        # 1. Puntos Marcador
                         pred = str(v['Prediccion'])
                         if '-' in pred:
-                            pts = 0
-                            if pred == res_real: pts = 15
-                            elif get_outcome(pred) == out_real: pts = 5
+                            if pred == res_real: pts_partido += 15
+                            elif get_outcome(pred) == out_real: pts_partido += 5
+                        
+                        # 2. Puntos Extra
+                        if c_real is not None and v.get('Pred_Corners'):
+                            if (c_real > LINEA_CORNERS and v['Pred_Corners'] == 'Más') or (c_real < LINEA_CORNERS and v['Pred_Corners'] == 'Menos'): pts_partido += 2
+                        if t_real is not None and v.get('Pred_Tarjetas'):
+                            if (t_real > LINEA_TARJETAS and v['Pred_Tarjetas'] == 'Más') or (t_real < LINEA_TARJETAS and v['Pred_Tarjetas'] == 'Menos'): pts_partido += 2
+                        if f_real is not None and v.get('Pred_Faltas'):
+                            if (f_real > LINEA_FALTAS and v['Pred_Faltas'] == 'Más') or (f_real < LINEA_FALTAS and v['Pred_Faltas'] == 'Menos'): pts_partido += 2
                             
-                            if pts > 0:
-                                pts_data[v['Id_usuario']]["Global"] += pts
-                                pts_data[v['Id_usuario']][fase_val] += pts
+                        if pts_partido > 0:
+                            pts_data[v['Id_usuario']]["Global"] += pts_partido
+                            pts_data[v['Id_usuario']][fase_val] += pts_partido
 
         ranking_tabs_names = ["Global"] + fases_existentes
         rk_tabs = st.tabs(ranking_tabs_names)
@@ -324,14 +361,19 @@ with tabs[1]:
 # TAB 3: REGLAS
 # ================================
 with tabs[2]:
-    st.markdown("""
+    st.markdown(f"""
     ### 📜 Reglas de la Porra Mundial 2026
     
     1. **Ganador o Empate (5 Puntos):** Recibirás **5 puntos** si logras acertar qué equipo ganará el encuentro o si el partido terminará en empate. *(Por ejemplo, si apuestas un 2-0 y el partido queda 1-0, te llevas los 5 puntos).*
        
     2. **Resultado Exacto (15 Puntos):** Recibirás **15 puntos** si consigues acertar la cantidad exacta de goles que marcará cada equipo (ejemplo: 2-1, 0-0, 3-0).
+    
+    3. **Mercados Extra (+2 Puntos c/u):** De forma opcional, puedes apostar si habrá Más o Menos de ciertas estadísticas. Cada acierto suma 2 puntos extra (máximo 6 extra por partido). Las líneas oficiales son:
+       * 🚩 Córners: **{LINEA_CORNERS}**
+       * 🟨 Tarjetas: **{LINEA_TARJETAS}** *(Rojas valen como 1 tarjeta)*
+       * 🛑 Faltas: **{LINEA_FALTAS}**
        
-    *(Nota de Seguridad: La visibilidad de los votos del resto de la comunidad permanece bloqueada hasta el minuto 1 del partido para garantizar total transparencia y evitar que se copien estrategias).*
+    *(Nota: La visibilidad de los votos de la comunidad permanece bloqueada hasta el minuto 1 del partido para garantizar transparencia).*
     """)
 
 # ================================
@@ -344,27 +386,51 @@ if es_admin:
         if p_admin:
             p_sel = st.selectbox("Partido finalizado:", p_admin, format_func=lambda x: f"{x['Equipo_local']} vs {x['Equipo_visitante']}")
             
-            st.write("Resultado real exacto:")
+            st.write("1. Marcador Final:")
             c_admin_l, c_admin_v = st.columns(2)
             gan_l = c_admin_l.number_input("Goles Local", 0, 20, 0, key="admin_l")
             gan_v = c_admin_v.number_input("Goles Visitante", 0, 20, 0, key="admin_v")
             gan_str = f"{gan_l}-{gan_v}"
             
+            st.write("2. Estadísticas Reales:")
+            c_ac, c_at, c_af = st.columns(3)
+            real_c = c_ac.number_input("🚩 Córners", 0, 50, 0)
+            real_t = c_at.number_input("🟨 Tarjetas", 0, 30, 0)
+            real_f = c_af.number_input("🛑 Faltas", 0, 60, 0)
+            
             if st.button("GUARDAR RESULTADO Y REPARTIR PUNTOS", type="primary"):
-                supabase.table("Partidos").update({"Resultado_real": gan_str}).eq("Id", p_sel['Id']).execute()
-                out_real = get_outcome(gan_str)
+                # 1. Guardar en Partidos
+                supabase.table("Partidos").update({
+                    "Resultado_real": gan_str,
+                    "Corners_real": real_c,
+                    "Tarjetas_real": real_t,
+                    "Faltas_real": real_f
+                }).eq("Id", p_sel['Id']).execute()
                 
+                # 2. Calcular puntos y actualizar usuarios
+                out_real = get_outcome(gan_str)
                 votos_partido = [v for v in todas_porras if v['Id_partido'] == p_sel['Id']]
+                
                 for v in votos_partido:
+                    pts_sum = 0
+                    # Puntos Marcador
                     pred = str(v['Prediccion'])
                     if '-' in pred:
-                        pts_sum = 0
-                        if pred == gan_str: pts_sum = 15
-                        elif get_outcome(pred) == out_real: pts_sum = 5
-                        
-                        if pts_sum > 0:
-                            pts_actuales = supabase.table("Usuarios").select("Puntos").eq("Id", v['Id_usuario']).execute().data[0]['Puntos']
-                            supabase.table("Usuarios").update({"Puntos": pts_actuales + pts_sum}).eq("Id", v['Id_usuario']).execute()
+                        if pred == gan_str: pts_sum += 15
+                        elif get_outcome(pred) == out_real: pts_sum += 5
+                    
+                    # Puntos Extra
+                    if v.get('Pred_Corners'):
+                        if (real_c > LINEA_CORNERS and v['Pred_Corners'] == 'Más') or (real_c < LINEA_CORNERS and v['Pred_Corners'] == 'Menos'): pts_sum += 2
+                    if v.get('Pred_Tarjetas'):
+                        if (real_t > LINEA_TARJETAS and v['Pred_Tarjetas'] == 'Más') or (real_t < LINEA_TARJETAS and v['Pred_Tarjetas'] == 'Menos'): pts_sum += 2
+                    if v.get('Pred_Faltas'):
+                        if (real_f > LINEA_FALTAS and v['Pred_Faltas'] == 'Más') or (real_f < LINEA_FALTAS and v['Pred_Faltas'] == 'Menos'): pts_sum += 2
+                    
+                    if pts_sum > 0:
+                        pts_actuales = supabase.table("Usuarios").select("Puntos").eq("Id", v['Id_usuario']).execute().data[0]['Puntos']
+                        supabase.table("Usuarios").update({"Puntos": pts_actuales + pts_sum}).eq("Id", v['Id_usuario']).execute()
+                
                 st.rerun()
         else:
             st.success("No hay partidos pendientes de cerrar.")
@@ -375,4 +441,3 @@ if es_admin:
             u_sel = st.selectbox("Validar pago:", u_pend, format_func=lambda x: x['Nombre'])
             if st.button("ACTIVAR USUARIO"):
                 supabase.table("Usuarios").update({"Estado": "Pagado"}).eq("Id", u_sel['Id']).execute(); st.rerun()
-        else: st.write("No hay pagos pendientes.")
