@@ -194,7 +194,6 @@ todos_usuarios_raw = supabase.table("Usuarios").select("Id, Apodo, Puntos, Estad
 dict_nombres = {u['Id']: u['Apodo'] if u['Apodo'] else f"User_{u['Id']}" for u in todos_usuarios_raw}
 usuarios_ranking = todos_usuarios_raw
 
-# MEJORA 1: Calcular bote acumulado (Usuarios Pagados * 20€)
 usuarios_pagados = [u for u in todos_usuarios_raw if u.get("Estado") == "Pagado"]
 bote_total = len(usuarios_pagados) * 20
 
@@ -235,18 +234,22 @@ if st.session_state["view_partido"]:
             votos_p = [v for v in todas_porras if v['Id_partido'] == p['Id']]
             
             if votos_p:
-                # MEJORA 2 (Parte 1): Desglose visual en el cuadro de detalles individuales del partido cerrado
                 data_list = []
                 for v in votos_p:
                     row = {"Jugador (Apodo)": dict_nombres.get(v['Id_usuario'], "Anon")}
                     
                     if p.get('Resultado_real'):
-                        # Cargar validaciones de aciertos
                         r_real = p['Resultado_real']
                         o_real = get_outcome(r_real)
                         o_voto = get_outcome(v['Prediccion'])
                         
-                        row["Resultado"] = f"{v['Prediccion']} " + ("🎯 (+15)" if v['Prediccion'] == r_real else ("✅ (+5)" if o_voto == o_real else "❌"))
+                        # MEJORA SOLICITADA: Reflejar en el desglose que se suman los 15 + 5 = 20 pts
+                        if v['Prediccion'] == r_real:
+                            row["Resultado"] = f"{v['Prediccion']} 🎯 (+20)"
+                        elif o_voto == o_real and o_real is not None:
+                            row["Resultado"] = f"{v['Prediccion']} ✅ (+5)"
+                        else:
+                            row["Resultado"] = f"{v['Prediccion']} ❌"
                         
                         if p.get('Corners_real') is not None and v.get('Pred_Corners'):
                             hit = (p['Corners_real'] > LINEA_CORNERS and v['Pred_Corners'] == 'Más') or (p['Corners_real'] < LINEA_CORNERS and v['Pred_Corners'] == 'Menos')
@@ -314,13 +317,13 @@ with tabs[0]:
                                 mi_voto = v_u['Prediccion']
                                 out_voto = get_outcome(mi_voto)
                                 
-                                # MEJORA 2 (Parte 2): Mensaje resumido y desglose claro de mercados extras en la feed
                                 pts_totales_partido = 0
                                 msjs_extras = []
                                 
+                                # MEJORA SOLICITADA: Si hay pleno exacto, se le suman acumulados los 15 + los 5 del signo = 20 puntos
                                 if mi_voto == res_real:
-                                    pts_totales_partido += 15
-                                    msjs_extras.append("🎯 Pleno Marcador (+15)")
+                                    pts_totales_partido += 20
+                                    msjs_extras.append("🎯 Pleno Marcador Exacto (+20)")
                                 elif out_voto == out_real and out_real is not None:
                                     pts_totales_partido += 5
                                     msjs_extras.append("✅ Ganador/Empate (+5)")
@@ -423,9 +426,7 @@ with tabs[1]:
         for f in fases_existentes:
             for uid in pts_data: pts_data[uid][f] = 0
         
-        # Encontrar los últimos 3 partidos que ya tienen resultado para la racha
         partidos_con_resultado = [p for p in partidos_db if p.get('Resultado_real') and '-' in str(p['Resultado_real'])]
-        # Ordenamos por fecha de forma descendente para tener los más recientes primero
         try:
             partidos_con_resultado = sorted(partidos_con_resultado, key=lambda x: datetime.fromisoformat(x['Fecha_hora']).timestamp(), reverse=True)
         except:
@@ -447,7 +448,8 @@ with tabs[1]:
                         pts_partido = 0
                         pred = str(v['Prediccion'])
                         if '-' in pred:
-                            if pred == res_real: pts_partido += 15
+                            # MEJORA SOLICITADA: Cambiado de asignación excluyente a sumatorio acumulado (15 + 5 = 20 pts)
+                            if pred == res_real: pts_partido += 20
                             elif get_outcome(pred) == out_real: pts_partido += 5
                         
                         if c_real is not None and v.get('Pred_Corners'):
@@ -462,11 +464,9 @@ with tabs[1]:
                             if fase_val in pts_data[v['Id_usuario']]:
                                 pts_data[v['Id_usuario']][fase_val] += pts_partido
                             
-                            # Si pertenece a los últimos 3 partidos finalizados, sumamos a la racha
                             if p['Id'] in ultimos_3_partidos_ids:
                                 pts_data[v['Id_usuario']]["Racha_Pts"] += pts_partido
 
-        # MEJORA 3: Encontrar la puntuación máxima de racha para asignar la medalla de fuego 🔥
         max_racha = max([u["Racha_Pts"] for u in pts_data.values()]) if pts_data else 0
 
         ranking_tabs_names = ["Global"] + fases_existentes
@@ -487,7 +487,6 @@ with tabs[1]:
                         with c3: st.markdown(f"<div class='podium-bronze'>🥉<br>{ranking_filtrado[2]['Jugador (Apodo)']}<br>{ranking_filtrado[2][rk_name]} pts</div>", unsafe_allow_html=True)
                     st.divider()
                     
-                    # Preparar tabla final inyectando el emoji de fuego si está en la racha top
                     final_rows = []
                     for u in ranking_ordenado:
                         nombre_visual = u['Jugador (Apodo)']
@@ -505,10 +504,9 @@ with tabs[1]:
                     st.info(f"Aún no hay puntos repartidos en: {rk_name}")
 
 # ================================
-# TAB 3: REGLAS (INCLUYE BOTE RECAUDADO)
+# TAB 3: REGLAS
 # ================================
 with tabs[2]:
-    # MEJORA 1: Bloque visual impactante del Bote Recaudado
     st.markdown(f"""
     <div class='bote-box'>
         <div style='text-transform: uppercase; letter-spacing: 1.5px; font-size: 0.9em; color: #8899A6; font-weight: 800;'>💰 BOTE ACUMULADO ACTUAL 💰</div>
@@ -522,7 +520,7 @@ with tabs[2]:
     
     1. **Ganador o Empate (5 Puntos):** Recibirás **5 puntos** si logras acertar qué equipo ganará el encuentro o si el partido terminará en empate. *(Por ejemplo, si apuestas un 2-0 y el partido queda 1-0, te llevas los 5 puntos).*
        
-    2. **Resultado Exacto (15 Puntos):** Recibirás **15 puntos** si consigues acertar la cantidad exacta de goles que marcará cada equipo (ejemplo: 2-1, 0-0, 3-0).
+    2. **Resultado Exacto (20 Puntos):** Recibirás **20 puntos en total** (15 del marcador exacto + 5 del ganador acumulados) si consigues acertar la cantidad exacta de goles que marcará cada equipo (ejemplo: 2-1, 0-0, 3-0).
     
     3. **Mercados Extra (+2 Puntos c/u):** Cada acierto en Más/Menos sumará 2 puntos extra (máximo 6 extra por partido). Las líneas oficiales son:
        * 🚩 Córners: **{LINEA_CORNERS}**
@@ -566,7 +564,8 @@ if es_admin:
                     pts_sum = 0
                     pred = str(v['Prediccion'])
                     if '-' in pred:
-                        if pred == gan_str: pts_sum += 15
+                        # MEJORA SOLICITADA: Cambiado de asignación excluyente a sumatorio acumulado (15 + 5 = 20 pts)
+                        if pred == gan_str: pts_sum += 20
                         elif get_outcome(pred) == out_real: pts_sum += 5
                     
                     if v.get('Pred_Corners') and real_c is not None:
