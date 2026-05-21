@@ -2,14 +2,13 @@ import streamlit as st
 from supabase import create_client, Client
 from datetime import datetime, timezone, timedelta
 import pandas as pd
-import re  # <-- Importamos la librería de expresiones regulares para la contraseña
+import re
 
 # --- CONSTANTES DE LÍNEAS DE APUESTA ---
 LINEA_CORNERS = 8.5
 LINEA_TARJETAS = 4.5
 LINEA_FALTAS = 22.5
 
-# --- FUNCIÓN AYUDANTE: VALIDAR REQUISITOS DE CONTRASEÑA ---
 def check_password_strength(password):
     """
     Devuelve (True, mensaje) si cumple los requisitos:
@@ -88,7 +87,7 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# --- 3. LOGIN & ACCESO MEJORADO ---
+# --- 3. LOGIN & ACCESO ---
 if "Id_usuario" not in st.session_state:
     st.markdown("<br><br>", unsafe_allow_html=True)
     _, col_login, _ = st.columns([1, 2, 1])
@@ -123,19 +122,18 @@ if "Id_usuario" not in st.session_state:
                 reg_nombre = st.text_input("Nombre", placeholder="Tu nombre")
                 reg_apellidos = st.text_input("Apellidos", placeholder="Tus apellidos")
                 reg_apodo = st.text_input("Apodo (Único para Rankings)", placeholder="Ej: El Mosca").strip()
-                # Añadimos un placeholder que recuerde las reglas de seguridad
                 reg_pass = st.text_input("Contraseña de Acceso", type="password", placeholder="Mín. 8 caracteres (letras y números)")
                 submit_reg = st.form_submit_button("COMPLETAR REGISTRO")
                 
             if submit_reg:
                 if reg_nombre and reg_apellidos and reg_apodo and reg_pass:
-                    # 1. Ejecutar validación de seguridad de contraseña
+                    # 1. Ejecutar la validación de seguridad de la contraseña
                     is_valid_pass, error_msg = check_password_strength(reg_pass)
                     
                     if not is_valid_pass:
                         st.error(f"❌ Contraseña insegura: {error_msg}")
                     else:
-                        # Verificar primero si el apodo está cogido
+                        # 2. Verificar si el apodo está cogido
                         check_apodo = supabase.table("Usuarios").select("Id").eq("Apodo", reg_apodo).execute()
                         if check_apodo.data:
                             st.error("❌ Ese apodo ya está registrado por otro jugador. Elige otro.")
@@ -194,6 +192,7 @@ for p in partidos_raw:
     p["Fase_Visual"] = "Fase de Grupos" if "Grupo" in p["Fase"] else p["Fase"]
 
 todos_usuarios_raw = supabase.table("Usuarios").select("Id, Apodo, Puntos").order("Puntos", desc=True).execute().data
+# Mapeo rápido usando el nuevo campo Apodo
 dict_nombres = {u['Id']: u['Apodo'] if u['Apodo'] else f"User_{u['Id']}" for u in todos_usuarios_raw}
 usuarios_ranking = todos_usuarios_raw
 
@@ -378,7 +377,7 @@ with tabs[1]:
                             elif get_outcome(pred) == out_real: pts_partido += 5
                         
                         if c_real is not None and v.get('Pred_Corners'):
-                            if (c_real > LINEA_CORNERS and v['Pred_Corners'] == 'Más') or (c_real < LINEA_CORNERS && v['Pred_Corners'] == 'Menos'): pts_partido += 2
+                            if (c_real > LINEA_CORNERS and v['Pred_Corners'] == 'Más') or (c_real < LINEA_CORNERS and v['Pred_Corners'] == 'Menos'): pts_partido += 2
                         if t_real is not None and v.get('Pred_Tarjetas'):
                             if (t_real > LINEA_TARJETAS and v['Pred_Tarjetas'] == 'Más') or (t_real < LINEA_TARJETAS and v['Pred_Tarjetas'] == 'Menos'): pts_partido += 2
                         if f_real is not None and v.get('Pred_Faltas'):
