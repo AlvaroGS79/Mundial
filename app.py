@@ -73,35 +73,80 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# --- 3. LOGIN ---
+# --- 3. LOGIN & ACCESO MEJORADO ---
 if "Id_usuario" not in st.session_state:
     st.markdown("<br><br>", unsafe_allow_html=True)
-    _, col_login, _ = st.columns([1, 1.5, 1])
+    _, col_login, _ = st.columns([1, 2, 1])
     with col_login:
-        st.markdown("<div style='text-align: center; margin-bottom: 30px;'><h1 class='text-gradient' style='font-size: 3.5em;'>FIFA 2026</h1><h3 style='color: #FFF; font-weight: 800;'>PORRA OFICIAL</h3></div>", unsafe_allow_html=True)
-        with st.form("login_form", border=False):
-            nombre_u = st.text_input("👤 Usuario", placeholder="Tu nombre")
-            pass_u = st.text_input("🔒 Contraseña", type="password")
-            submit = st.form_submit_button("ENTRAR")
-        if submit:
-            if nombre_u.strip() and pass_u.strip():
-                res = supabase.table("Usuarios").select("*").eq("Nombre", nombre_u).execute()
-                if res.data:
-                    if str(res.data[0]["Password"]) == str(pass_u):
-                        st.session_state.update({"Id_usuario": res.data[0]["Id"], "Nombre": res.data[0]["Nombre"], "Estado": res.data[0].get("Estado", "Pendiente")})
-                        st.rerun()
-                    else: st.error("❌ Contraseña incorrecta")
-                else:
-                    nuevo = supabase.table("Usuarios").insert({"Nombre": nombre_u, "Password": pass_u, "Puntos": 0, "Estado": "Pendiente"}).execute()
-                    st.session_state.update({"Id_usuario": nuevo.data[0]["Id"], "Nombre": nombre_u, "Estado": "Pendiente"})
-                    st.rerun()
+        st.markdown("<div style='text-align: center; margin-bottom: 20px;'><h1 class='text-gradient' style='font-size: 3.5em;'>FIFA 2026</h1><h3 style='color: #FFF; font-weight: 800;'>PORRA OFICIAL</h3></div>", unsafe_allow_html=True)
+        
+        # Pestañas para separar el Login del Formulario de Registro previo
+        tab_log, tab_reg = st.tabs(["🔐 INICIAR SESIÓN", "📝 CREAR CUENTA"])
+        
+        with tab_log:
+            with st.form("login_form", border=False):
+                apodo_login = st.text_input("👤 Tu Apodo", placeholder="Ej: golazo99").strip()
+                pass_login = st.text_input("🔒 Contraseña", type="password", placeholder="••••••••")
+                submit_log = st.form_submit_button("ENTRAR AL TORNEO")
+            
+            if submit_log:
+                if apodo_login and pass_login:
+                    res = supabase.table("Usuarios").select("*").eq("Apodo", apodo_login).execute()
+                    if res.data:
+                        if str(res.data[0]["Password"]) == str(pass_login):
+                            st.session_state.update({
+                                "Id_usuario": res.data[0]["Id"], 
+                                "Apodo": res.data[0]["Apodo"], 
+                                "Estado": res.data[0].get("Estado", "Pendiente")
+                            })
+                            st.rerun()
+                        else: st.error("❌ Contraseña incorrecta")
+                    else: st.error("❌ No existe ningún usuario con ese apodo")
+                else: st.warning("⚠️ Rellena todos los campos para entrar.")
+                
+        with tab_reg:
+            with st.form("register_form", border=False):
+                reg_nombre = st.text_input("Nombre Real", placeholder="Tu nombre de pila")
+                reg_apellidos = st.text_input("Apellidos", placeholder="Tus apellidos")
+                reg_apodo = st.text_input("Apodo (Único para Rankings)", placeholder="Ej: Pichichi2026").strip()
+                reg_pass = st.text_input("Contraseña de Acceso", type="password", placeholder="Mínimo 1 carácter")
+                submit_reg = st.form_submit_button("COMPLETAR REGISTRO")
+                
+            if submit_reg:
+                if reg_nombre and reg_apellidos and reg_apodo and reg_pass:
+                    # Verificar primero si el apodo está cogido
+                    check_apodo = supabase.table("Usuarios").select("Id").eq("Apodo", reg_apodo).execute()
+                    if check_apodo.data:
+                        st.error("❌ Ese apodo ya está registrado por otro jugador. Elige otro.")
+                    else:
+                        try:
+                            nuevo = supabase.table("Usuarios").insert({
+                                "Nombre": reg_apodo, # Mantenemos la columna base Nombre apuntando al apodo para compatibilidad
+                                "Nombre_Real": reg_nombre,
+                                "Apellidos": reg_apellidos,
+                                "Apodo": reg_apodo,
+                                "Password": reg_pass,
+                                "Puntos": 0,
+                                "Estado": "Pendiente"
+                            }).execute()
+                            
+                            st.session_state.update({
+                                "Id_usuario": nuevo.data[0]["Id"], 
+                                "Apodo": reg_apodo, 
+                                "Estado": "Pendiente"
+                            })
+                            st.success("🎉 ¡Cuenta creada con éxito!")
+                            st.rerun()
+                        except Exception as e:
+                            st.error("❌ Error al guardar en la base de datos. Revisa la configuración de Supabase.")
+                else: st.warning("⚠️ Por favor, rellena los 4 campos del formulario para registrarte.")
     st.stop()
 
 # --- 4. VERIFICACIÓN PAGO ---
 if st.session_state.get("Estado") == "Pendiente":
     st.title("🔒 Cuenta Inactiva")
-    st.warning(f"Hola {st.session_state['Nombre']}, activa tu cuenta para jugar.")
-    st.info("Envía 20€ por Bizum al 6XX XXX XXX indicando tu nombre.")
+    st.warning(f"Hola {st.session_state['Apodo']}, activa tu cuenta para jugar.")
+    st.info("Envía 20€ por Bizum al 6XX XXX XXX indicando tu apodo en el concepto.")
     if st.button("🔄 Comprobar Pago"):
         res = supabase.table("Usuarios").select("Estado").eq("Id", st.session_state["Id_usuario"]).execute()
         st.session_state["Estado"] = res.data[0]["Estado"]; st.rerun()
@@ -109,16 +154,13 @@ if st.session_state.get("Estado") == "Pendiente":
 
 # --- 5. CARGA DE DATOS Y ORDENAMIENTO ---
 ADMIN_NOMBRE = "AGS"
-es_admin = st.session_state["Nombre"] == ADMIN_NOMBRE
+es_admin = st.session_state["Apodo"] == ADMIN_NOMBRE
 
 partidos_db = supabase.table("Partidos").select("*").execute().data
 
-# Ordenamiento por Grupo (Ascendente) y Fecha (Ascendente)
 def sort_matches(p):
-    try:
-        dt = datetime.fromisoformat(p['Fecha_hora']).timestamp()
-    except:
-        dt = float('inf')
+    try: dt = datetime.fromisoformat(p['Fecha_hora']).timestamp()
+    except: dt = float('inf')
     return (p['Fase'], dt)
 
 partidos_raw = sorted(partidos_db, key=sort_matches)
@@ -130,15 +172,16 @@ partidos_raw = pendientes + finalizados
 for p in partidos_raw: 
     p["Fase_Visual"] = "Fase de Grupos" if "Grupo" in p["Fase"] else p["Fase"]
 
-todos_usuarios_raw = supabase.table("Usuarios").select("Id, Nombre, Puntos").order("Puntos", desc=True).execute().data
-dict_nombres = {u['Id']: u['Nombre'] for u in todos_usuarios_raw}
+todos_usuarios_raw = supabase.table("Usuarios").select("Id, Apodo, Puntos").order("Puntos", desc=True).execute().data
+# Mapeo rápido usando el nuevo campo Apodo
+dict_nombres = {u['Id']: u['Apodo'] if u['Apodo'] else f"User_{u['Id']}" for u in todos_usuarios_raw}
 usuarios_ranking = todos_usuarios_raw
 
 hora_actual_espana = datetime.now(timezone.utc) + timedelta(hours=2) 
 todas_porras = supabase.table("Porras").select("*").execute().data
 
 with st.sidebar:
-    st.markdown(f"<h2 style='text-align: center;'><span class='text-gradient'>👤 {st.session_state['Nombre']}</span></h2>", unsafe_allow_html=True)
+    st.markdown(f"<h2 style='text-align: center;'><span class='text-gradient'>👤 {st.session_state['Apodo']}</span></h2>", unsafe_allow_html=True)
     mi_puntos = next((u['Puntos'] for u in todos_usuarios_raw if u['Id'] == st.session_state['Id_usuario']), 0)
     st.metric("Tus Puntos Totales", mi_puntos)
     if st.button("🚪 Cerrar Sesión"): st.session_state.clear(); st.rerun()
@@ -164,7 +207,6 @@ if st.session_state["view_partido"]:
             st.markdown(f"<div style='display: flex; justify-content: space-between; align-items: center;'><div style='display: flex; align-items: center; justify-content: flex-end; flex: 1; text-align: right; padding-right: 10px;'><span class='team-name'>{p['Equipo_local']}</span><img src='https://flagcdn.com/32x24/{iso_l}.png' style='margin-left: 8px; border-radius: 4px;'></div><div style='flex-shrink: 0;'><span class='score-box'>{res_txt}</span></div><div style='display: flex; align-items: center; justify-content: flex-start; flex: 1; text-align: left; padding-left: 10px;'><img src='https://flagcdn.com/32x24/{iso_v}.png' style='margin-right: 8px; border-radius: 4px;'><span class='team-name'>{p['Equipo_visitante']}</span></div></div>", unsafe_allow_html=True)
             st.markdown("<hr style='margin: 15px 0px; border: none; border-top: 1px solid #1E2A38;'>", unsafe_allow_html=True)
             
-            # Mostrar datos reales si el partido ha terminado
             if p.get("Corners_real") is not None:
                 st.markdown(f"<p style='text-align:center; color:#8899A6;'>Estadísticas Finales: 🚩 {p['Corners_real']} | 🟨 {p['Tarjetas_real']} | 🛑 {p['Faltas_real']}</p>", unsafe_allow_html=True)
             
@@ -173,7 +215,7 @@ if st.session_state["view_partido"]:
             
             if votos_p:
                 df_votos = pd.DataFrame([{
-                    "Jugador": dict_nombres.get(v['Id_usuario'], "Anon"), 
+                    "Jugador (Apodo)": dict_nombres.get(v['Id_usuario'], "Anon"), 
                     "Resultado": v['Prediccion'],
                     "Córners": v.get('Pred_Corners', '-'),
                     "Tarjetas": v.get('Pred_Tarjetas', '-'),
@@ -183,7 +225,6 @@ if st.session_state["view_partido"]:
             else:
                 st.info("Nadie votó en este partido.")
     st.stop()
-
 
 # --- 6. TABS (VISTA PRINCIPAL) ---
 orden_fases = ["Fase de Grupos", "Dieciseisavos", "Octavos", "Cuartos", "Semifinales", "3º y 4º Puesto", "Final"]
@@ -200,7 +241,6 @@ with tabs[0]:
     if not partidos_raw: st.info("Cargando calendario...")
     else:
         sub_tabs = st.tabs(fases_existentes)
-        # Diccionario mejorado para guardar toda la predicción del usuario
         votos_usuario = {v['Id_partido']: v for v in todas_porras if v['Id_usuario'] == st.session_state["Id_usuario"]}
         
         for i, fase_tab in enumerate(fases_existentes):
@@ -213,7 +253,7 @@ with tabs[0]:
                         res_txt = p['Resultado_real'] if p['Resultado_real'] else "VS"
                         
                         st.markdown(f"<div style='display: flex; justify-content: space-between; align-items: center;'><div style='display: flex; align-items: center; justify-content: flex-end; flex: 1; text-align: right; padding-right: 10px;'><span class='team-name'>{p['Equipo_local']}</span><img src='https://flagcdn.com/32x24/{iso_l}.png' style='margin-left: 8px; border-radius: 4px;'></div><div style='flex-shrink: 0;'><span class='score-box'>{res_txt}</span></div><div style='display: flex; align-items: center; justify-content: flex-start; flex: 1; text-align: left; padding-left: 10px;'><img src='https://flagcdn.com/32x24/{iso_v}.png' style='margin-right: 8px; border-radius: 4px;'><span class='team-name'>{p['Equipo_visitante']}</span></div></div>", unsafe_allow_html=True)
-                        st.markdown("<hr style='margin: 15px 0px 10px 0px; border: none; border-top: 1px solid #1E2A38;'>", unsafe_allow_html=True)
+                        st.markdown("<hr style='margin: 15px 0px; border: none; border-top: 1px solid #1E2A38;'>", unsafe_allow_html=True)
                         
                         ha_votado = p['Id'] in votos_usuario
 
@@ -287,17 +327,15 @@ with tabs[0]:
                                         st.rerun()
                                 else:
                                     st.markdown("<p style='font-size:0.7em; color:#8899A6; text-align:center; font-style:italic;'>Los pronósticos completos se revelan al inicio.</p>", unsafe_allow_html=True)
-                        elif fecha_p > hora_actual_espana:
-                            st.markdown("<p style='font-size:0.75em; color:#556677; text-align:center; margin-top:5px;'>Vota para descubrir la tendencia 🗳️</p>", unsafe_allow_html=True)
 
 # ================================
-# TAB 2: RANKING DINÁMICO POR FASES
+# TAB 2: RANKING DINÁMICO POR FASES (CON APODOS)
 # ================================
 with tabs[1]:
     if not usuarios_ranking: 
         st.info("Sin usuarios.")
     else:
-        pts_data = {u['Id']: {"Nombre": u['Nombre'], "Global": 0} for u in usuarios_ranking}
+        pts_data = {u['Id']: {"Jugador (Apodo)": u['Apodo'] if u['Apodo'] else "Sin Apodo", "Global": 0} for u in usuarios_ranking}
         for f in fases_existentes:
             for uid in pts_data: pts_data[uid][f] = 0
                 
@@ -314,14 +352,11 @@ with tabs[1]:
                 for v in todas_porras:
                     if v['Id_partido'] == p['Id'] and v['Id_usuario'] in pts_data:
                         pts_partido = 0
-                        
-                        # 1. Puntos Marcador
                         pred = str(v['Prediccion'])
                         if '-' in pred:
                             if pred == res_real: pts_partido += 15
                             elif get_outcome(pred) == out_real: pts_partido += 5
                         
-                        # 2. Puntos Extra
                         if c_real is not None and v.get('Pred_Corners'):
                             if (c_real > LINEA_CORNERS and v['Pred_Corners'] == 'Más') or (c_real < LINEA_CORNERS and v['Pred_Corners'] == 'Menos'): pts_partido += 2
                         if t_real is not None and v.get('Pred_Tarjetas'):
@@ -344,14 +379,14 @@ with tabs[1]:
                 if ranking_filtrado:
                     st.markdown(f"<h3 style='text-align: center; margin-bottom: 30px;'><span class='text-gradient'>🏆 LÍDERES: {rk_name.upper()}</span></h3>", unsafe_allow_html=True)
                     c1, c2, c3 = st.columns(3)
-                    with c1: st.markdown(f"<div class='podium-gold'>🥇<br>{ranking_filtrado[0]['Nombre']}<br>{ranking_filtrado[0][rk_name]} pts</div>", unsafe_allow_html=True)
+                    with c1: st.markdown(f"<div class='podium-gold'>🥇<br>{ranking_filtrado[0]['Jugador (Apodo)']}<br>{ranking_filtrado[0][rk_name]} pts</div>", unsafe_allow_html=True)
                     if len(ranking_filtrado) > 1:
-                        with c2: st.markdown(f"<div class='podium-silver'>🥈<br>{ranking_filtrado[1]['Nombre']}<br>{ranking_filtrado[1][rk_name]} pts</div>", unsafe_allow_html=True)
+                        with c2: st.markdown(f"<div class='podium-silver'>🥈<br>{ranking_filtrado[1]['Jugador (Apodo)']}<br>{ranking_filtrado[1][rk_name]} pts</div>", unsafe_allow_html=True)
                     if len(ranking_filtrado) > 2:
-                        with c3: st.markdown(f"<div class='podium-bronze'>🥉<br>{ranking_filtrado[2]['Nombre']}<br>{ranking_filtrado[2][rk_name]} pts</div>", unsafe_allow_html=True)
+                        with c3: st.markdown(f"<div class='podium-bronze'>🥉<br>{ranking_filtrado[2]['Jugador (Apodo)']}<br>{ranking_filtrado[2][rk_name]} pts</div>", unsafe_allow_html=True)
                     st.divider()
                     
-                    df_mostrar = pd.DataFrame(ranking_ordenado)[['Nombre', rk_name]]
+                    df_mostrar = pd.DataFrame(ranking_ordenado)[['Jugador (Apodo)', rk_name]]
                     df_mostrar.rename(columns={rk_name: 'Puntos'}, inplace=True)
                     st.dataframe(df_mostrar, use_container_width=True, hide_index=True)
                 else:
@@ -368,12 +403,10 @@ with tabs[2]:
        
     2. **Resultado Exacto (15 Puntos):** Recibirás **15 puntos** si consigues acertar la cantidad exacta de goles que marcará cada equipo (ejemplo: 2-1, 0-0, 3-0).
     
-    3. **Mercados Extra (+2 Puntos c/u):** De forma opcional, puedes apostar si habrá Más o Menos de ciertas estadísticas. Cada acierto suma 2 puntos extra (máximo 6 extra por partido). Las líneas oficiales son:
+    3. **Mercados Extra (+2 Puntos c/u):** Cada acierto en Más/Menos sumará 2 puntos extra (máximo 6 extra por partido). Las líneas oficiales son:
        * 🚩 Córners: **{LINEA_CORNERS}**
-       * 🟨 Tarjetas: **{LINEA_TARJETAS}** *(Rojas valen como 1 tarjeta)*
+       * 🟨 Tarjetas: **{LINEA_TARJETAS}**
        * 🛑 Faltas: **{LINEA_FALTAS}**
-       
-    *(Nota: La visibilidad de los votos de la comunidad permanece bloqueada hasta el minuto 1 del partido para garantizar transparencia).*
     """)
 
 # ================================
@@ -386,58 +419,47 @@ if es_admin:
         if p_admin:
             p_sel = st.selectbox("Partido finalizado:", p_admin, format_func=lambda x: f"{x['Equipo_local']} vs {x['Equipo_visitante']}")
             
-            st.write("1. Marcador Final:")
+            st.write("Marcador Final:")
             c_admin_l, c_admin_v = st.columns(2)
             gan_l = c_admin_l.number_input("Goles Local", 0, 20, 0, key="admin_l")
             gan_v = c_admin_v.number_input("Goles Visitante", 0, 20, 0, key="admin_v")
             gan_str = f"{gan_l}-{gan_v}"
             
-            st.write("2. Estadísticas Reales:")
+            st.write("Estadísticas Reales:")
             c_ac, c_at, c_af = st.columns(3)
             real_c = c_ac.number_input("🚩 Córners", 0, 50, 0)
             real_t = c_at.number_input("🟨 Tarjetas", 0, 30, 0)
             real_f = c_af.number_input("🛑 Faltas", 0, 60, 0)
             
             if st.button("GUARDAR RESULTADO Y REPARTIR PUNTOS", type="primary"):
-                # 1. Guardar en Partidos
                 supabase.table("Partidos").update({
-                    "Resultado_real": gan_str,
-                    "Corners_real": real_c,
-                    "Tarjetas_real": real_t,
-                    "Faltas_real": real_f
+                    "Resultado_real": gan_str, "Corners_real": real_c, "Tarjetas_real": real_t, "Faltas_real": real_f
                 }).eq("Id", p_sel['Id']).execute()
                 
-                # 2. Calcular puntos y actualizar usuarios
                 out_real = get_outcome(gan_str)
                 votos_partido = [v for v in todas_porras if v['Id_partido'] == p_sel['Id']]
                 
                 for v in votos_partido:
                     pts_sum = 0
-                    # Puntos Marcador
                     pred = str(v['Prediccion'])
                     if '-' in pred:
                         if pred == gan_str: pts_sum += 15
                         elif get_outcome(pred) == out_real: pts_sum += 5
                     
-                    # Puntos Extra
-                    if v.get('Pred_Corners'):
+                    if v.get('Pred_Corners') and real_c is not None:
                         if (real_c > LINEA_CORNERS and v['Pred_Corners'] == 'Más') or (real_c < LINEA_CORNERS and v['Pred_Corners'] == 'Menos'): pts_sum += 2
-                    if v.get('Pred_Tarjetas'):
+                    if v.get('Pred_Tarjetas') and real_t is not None:
                         if (real_t > LINEA_TARJETAS and v['Pred_Tarjetas'] == 'Más') or (real_t < LINEA_TARJETAS and v['Pred_Tarjetas'] == 'Menos'): pts_sum += 2
-                    if v.get('Pred_Faltas'):
+                    if v.get('Pred_Faltas') and real_f is not None:
                         if (real_f > LINEA_FALTAS and v['Pred_Faltas'] == 'Más') or (real_f < LINEA_FALTAS and v['Pred_Faltas'] == 'Menos'): pts_sum += 2
                     
                     if pts_sum > 0:
-                        pts_actuales = supabase.table("Usuarios").select("Puntos").eq("Id", v['Id_usuario']).execute().data[0]['Puntos']
-                        supabase.table("Usuarios").update({"Puntos": pts_actuales + pts_sum}).eq("Id", v['Id_usuario']).execute()
-                
+                        pts_act = supabase.table("Usuarios").select("Puntos").eq("Id", v['Id_usuario']).execute().data[0]['Puntos']
+                        supabase.table("Usuarios").update({"Puntos": pts_act + pts_sum}).eq("Id", v['Id_usuario']).execute()
                 st.rerun()
-        else:
-            st.success("No hay partidos pendientes de cerrar.")
-            
         st.divider()
         u_pend = supabase.table("Usuarios").select("*").eq("Estado", "Pendiente").execute().data
         if u_pend:
-            u_sel = st.selectbox("Validar pago:", u_pend, format_func=lambda x: x['Nombre'])
+            u_sel = st.selectbox("Validar pago de:", u_pend, format_func=lambda x: f"{x['Apodo']} ({x.get('Nombre_Real', '')})")
             if st.button("ACTIVAR USUARIO"):
                 supabase.table("Usuarios").update({"Estado": "Pagado"}).eq("Id", u_sel['Id']).execute(); st.rerun()
