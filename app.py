@@ -106,7 +106,7 @@ if "Id_usuario" not in st.session_state:
                 
         with tab_reg:
             with st.form("register_form", border=False):
-                reg_nombre = st.text_input("Nombre Real", placeholder="Tu nombre")
+                reg_nombre = st.text_input("Nombre", placeholder="Tu nombre")
                 reg_apellidos = st.text_input("Apellidos", placeholder="Tus apellidos")
                 reg_apodo = st.text_input("Apodo (Único para Rankings)", placeholder="Ej: El Mosca").strip()
                 reg_pass = st.text_input("Contraseña de Acceso", type="password", placeholder="••••••••")
