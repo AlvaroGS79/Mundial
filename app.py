@@ -85,9 +85,9 @@ if "Id_usuario" not in st.session_state:
         
         with tab_log:
             with st.form("login_form", border=False):
-                apodo_login = st.text_input("👤 Tu Apodo", placeholder="Ej: golazo99").strip()
+                apodo_login = st.text_input("👤 Tu Apodo", placeholder="Ej: El Mosca").strip()
                 pass_login = st.text_input("🔒 Contraseña", type="password", placeholder="••••••••")
-                submit_log = st.form_submit_button("ENTRAR AL TORNEO")
+                submit_log = st.form_submit_button("ENTRAR")
             
             if submit_log:
                 if apodo_login and pass_login:
@@ -106,10 +106,10 @@ if "Id_usuario" not in st.session_state:
                 
         with tab_reg:
             with st.form("register_form", border=False):
-                reg_nombre = st.text_input("Nombre Real", placeholder="Tu nombre de pila")
+                reg_nombre = st.text_input("Nombre Real", placeholder="Tu nombre")
                 reg_apellidos = st.text_input("Apellidos", placeholder="Tus apellidos")
-                reg_apodo = st.text_input("Apodo (Único para Rankings)", placeholder="Ej: Pichichi2026").strip()
-                reg_pass = st.text_input("Contraseña de Acceso", type="password", placeholder="Mínimo 1 carácter")
+                reg_apodo = st.text_input("Apodo (Único para Rankings)", placeholder="Ej: El Mosca").strip()
+                reg_pass = st.text_input("Contraseña de Acceso", type="password", placeholder="••••••••")
                 submit_reg = st.form_submit_button("COMPLETAR REGISTRO")
                 
             if submit_reg:
