@@ -98,7 +98,7 @@ if "Id_usuario" not in st.session_state:
         
         with tab_log:
             with st.form("login_form", border=False):
-                apodo_login = st.text_input("👤 User", placeholder="Ej: El Mosca").strip()
+                apodo_login = st.text_input("👤 Usuario", placeholder="Ej: El Mosca").strip()
                 pass_login = st.text_input("🔒 Contraseña", type="password", placeholder="••••••••")
                 submit_log = st.form_submit_button("ENTRAR")
             
