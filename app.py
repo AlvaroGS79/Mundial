@@ -78,6 +78,9 @@ st.markdown("""
     .stats-mini { background: #0D141B; border-radius: 10px; padding: 10px; margin-top: 15px; margin-bottom: 15px; border: 1px solid #1E2A38; font-size: 0.9em; text-align: center; font-weight: 600; color: #E1E8ED; }
     .flag-mini { width: 18px; border-radius: 2px; margin-right: 5px; vertical-align: middle; }
     
+    .bote-box { background: linear-gradient(135deg, #1E2A38, #111A24); border: 2px dashed #00E676; padding: 20px; border-radius: 16px; text-align: center; margin-bottom: 25px; }
+    .bote-monto { font-size: 2.2em; font-weight: 900; color: #00E676; margin-top: 5px; }
+    
     div[data-testid="stButton"] > button, div[data-testid="stFormSubmitButton"] > button { background: linear-gradient(45deg, #00E676, #00C853) !important; color: #060D13 !important; border-radius: 30px !important; font-weight: 800 !important; border: none !important; padding: 12px !important; text-transform: uppercase !important; letter-spacing: 1.5px !important; }
     .podium-gold { background: linear-gradient(135deg, #FFB300, #FF8F00); color: #FFF; padding: 20px; border-radius: 20px; text-align: center; margin-bottom: 15px; }
     .podium-silver { background: linear-gradient(135deg, #B0BEC5, #78909C); color: #FFF; padding: 15px; border-radius: 20px; text-align: center; }
@@ -93,7 +96,6 @@ if "Id_usuario" not in st.session_state:
     _, col_login, _ = st.columns([1, 2, 1])
     with col_login:
         st.markdown("<div style='text-align: center; margin-bottom: 20px;'><h1 class='text-gradient' style='font-size: 3.5em;'>FIFA 2026</h1><h3 style='color: #FFF; font-weight: 800;'>PORRA OFICIAL</h3></div>", unsafe_allow_html=True)
-        
         tab_log, tab_reg = st.tabs(["🔐 INICIAR SESIÓN", "📝 CREAR CUENTA"])
         
         with tab_log:
@@ -127,13 +129,10 @@ if "Id_usuario" not in st.session_state:
                 
             if submit_reg:
                 if reg_nombre and reg_apellidos and reg_apodo and reg_pass:
-                    # 1. Ejecutar la validación de seguridad de la contraseña
                     is_valid_pass, error_msg = check_password_strength(reg_pass)
-                    
                     if not is_valid_pass:
                         st.error(f"❌ Contraseña insegura: {error_msg}")
                     else:
-                        # 2. Verificar si el apodo está cogido
                         check_apodo = supabase.table("Usuarios").select("Id").eq("Apodo", reg_apodo).execute()
                         if check_apodo.data:
                             st.error("❌ Ese nombre de usuario ya está registrado por otro jugador. Elige otro.")
@@ -191,16 +190,19 @@ partidos_raw = pendientes + finalizados
 for p in partidos_raw: 
     p["Fase_Visual"] = "Fase de Grupos" if "Grupo" in p["Fase"] else p["Fase"]
 
-todos_usuarios_raw = supabase.table("Usuarios").select("Id, Apodo, Puntos").order("Puntos", desc=True).execute().data
-# Mapeo rápido usando el nuevo campo Apodo
+todos_usuarios_raw = supabase.table("Usuarios").select("Id, Apodo, Puntos, Estado").order("Puntos", desc=True).execute().data
 dict_nombres = {u['Id']: u['Apodo'] if u['Apodo'] else f"User_{u['Id']}" for u in todos_usuarios_raw}
 usuarios_ranking = todos_usuarios_raw
+
+# MEJORA 1: Calcular bote acumulado (Usuarios Pagados * 20€)
+usuarios_pagados = [u for u in todos_usuarios_raw if u.get("Estado") == "Pagado"]
+bote_total = len(usuarios_pagados) * 20
 
 hora_actual_espana = datetime.now(timezone.utc) + timedelta(hours=2) 
 todas_porras = supabase.table("Porras").select("*").execute().data
 
 with st.sidebar:
-    st.markdown(f"<h2 style='text-align: center;'><span class='text-gradient'>👤 {st.session_state['Apodo']}</span></h2>", unsafe_allow_html=True)
+    st.sidebar.markdown(f"<h2 style='text-align: center;'><span class='text-gradient'>👤 {st.session_state['Apodo']}</span></h2>", unsafe_allow_html=True)
     mi_puntos = next((u['Puntos'] for u in todos_usuarios_raw if u['Id'] == st.session_state['Id_usuario']), 0)
     st.metric("Tus Puntos Totales", mi_puntos)
     if st.button("🚪 Cerrar Sesión"): st.session_state.clear(); st.rerun()
@@ -233,13 +235,41 @@ if st.session_state["view_partido"]:
             votos_p = [v for v in todas_porras if v['Id_partido'] == p['Id']]
             
             if votos_p:
-                df_votos = pd.DataFrame([{
-                    "Jugador (Apodo)": dict_nombres.get(v['Id_usuario'], "Anon"), 
-                    "Resultado": v['Prediccion'],
-                    "Córners": v.get('Pred_Corners', '-'),
-                    "Tarjetas": v.get('Pred_Tarjetas', '-'),
-                    "Faltas": v.get('Pred_Faltas', '-')
-                } for v in votos_p])
+                # MEJORA 2 (Parte 1): Desglose visual en el cuadro de detalles individuales del partido cerrado
+                data_list = []
+                for v in votos_p:
+                    row = {"Jugador (Apodo)": dict_nombres.get(v['Id_usuario'], "Anon")}
+                    
+                    if p.get('Resultado_real'):
+                        # Cargar validaciones de aciertos
+                        r_real = p['Resultado_real']
+                        o_real = get_outcome(r_real)
+                        o_voto = get_outcome(v['Prediccion'])
+                        
+                        row["Resultado"] = f"{v['Prediccion']} " + ("🎯 (+15)" if v['Prediccion'] == r_real else ("✅ (+5)" if o_voto == o_real else "❌"))
+                        
+                        if p.get('Corners_real') is not None and v.get('Pred_Corners'):
+                            hit = (p['Corners_real'] > LINEA_CORNERS and v['Pred_Corners'] == 'Más') or (p['Corners_real'] < LINEA_CORNERS and v['Pred_Corners'] == 'Menos')
+                            row["Córners"] = f"{v['Pred_Corners']} " + ("🟢 (+2)" if hit else "🔴")
+                        else: row["Córners"] = v.get('Pred_Corners', '-')
+                        
+                        if p.get('Tarjetas_real') is not None and v.get('Pred_Tarjetas'):
+                            hit = (p['Tarjetas_real'] > LINEA_TARJETAS and v['Pred_Tarjetas'] == 'Más') or (p['Tarjetas_real'] < LINEA_TARJETAS and v['Pred_Tarjetas'] == 'Menos')
+                            row["Tarjetas"] = f"{v['Pred_Tarjetas']} " + ("🟢 (+2)" if hit else "🔴")
+                        else: row["Tarjetas"] = v.get('Pred_Tarjetas', '-')
+                            
+                        if p.get('Faltas_real') is not None and v.get('Pred_Faltas'):
+                            hit = (p['Faltas_real'] > LINEA_FALTAS and v['Pred_Faltas'] == 'Más') or (p['Faltas_real'] < LINEA_FALTAS and v['Pred_Faltas'] == 'Menos')
+                            row["Faltas"] = f"{v['Pred_Faltas']} " + ("🟢 (+2)" if hit else "🔴")
+                        else: row["Faltas"] = v.get('Pred_Faltas', '-')
+                    else:
+                        row["Resultado"] = v['Prediccion']
+                        row["Córners"] = v.get('Pred_Corners', '-')
+                        row["Tarjetas"] = v.get('Pred_Tarjetas', '-')
+                        row["Faltas"] = v.get('Pred_Faltas', '-')
+                    data_list.append(row)
+                    
+                df_votos = pd.DataFrame(data_list)
                 st.dataframe(df_votos, use_container_width=True, hide_index=True)
             else:
                 st.info("Nadie votó en este partido.")
@@ -280,11 +310,46 @@ with tabs[0]:
                             res_real = p['Resultado_real']
                             out_real = get_outcome(res_real)
                             if ha_votado:
-                                mi_voto = votos_usuario[p['Id']]['Prediccion']
+                                v_u = votos_usuario[p['Id']]
+                                mi_voto = v_u['Prediccion']
                                 out_voto = get_outcome(mi_voto)
-                                if mi_voto == res_real: st.success(f"🎯 ¡Pleno al marcador! ({mi_voto}). +15 pts")
-                                elif out_voto == out_real and out_real is not None: st.success(f"✅ Resultado final acertado (Pusiste {mi_voto}). +5 pts")
-                                else: st.error(f"❌ Fallaste (Pusiste {mi_voto})")
+                                
+                                # MEJORA 2 (Parte 2): Mensaje resumido y desglose claro de mercados extras en la feed
+                                pts_totales_partido = 0
+                                msjs_extras = []
+                                
+                                if mi_voto == res_real:
+                                    pts_totales_partido += 15
+                                    msjs_extras.append("🎯 Pleno Marcador (+15)")
+                                elif out_voto == out_real and out_real is not None:
+                                    pts_totales_partido += 5
+                                    msjs_extras.append("✅ Ganador/Empate (+5)")
+                                else:
+                                    msjs_extras.append("❌ Marcador")
+                                    
+                                if p.get('Corners_real') is not None and v_u.get('Pred_Corners'):
+                                    if (p['Corners_real'] > LINEA_CORNERS and v_u['Pred_Corners'] == 'Más') or (p['Corners_real'] < LINEA_CORNERS and v_u['Pred_Corners'] == 'Menos'):
+                                        pts_totales_partido += 2
+                                        msjs_extras.append("🚩 Córners (+2)")
+                                    else: msjs_extras.append("❌ Córners")
+                                    
+                                if p.get('Tarjetas_real') is not None and v_u.get('Pred_Tarjetas'):
+                                    if (p['Tarjetas_real'] > LINEA_TARJETAS and v_u['Pred_Tarjetas'] == 'Más') or (p['Tarjetas_real'] < LINEA_TARJETAS and v_u['Pred_Tarjetas'] == 'Menos'):
+                                        pts_totales_partido += 2
+                                        msjs_extras.append("🟨 Tarjetas (+2)")
+                                    else: msjs_extras.append("❌ Tarjetas")
+                                    
+                                if p.get('Faltas_real') is not None and v_u.get('Pred_Faltas'):
+                                    if (p['Faltas_real'] > LINEA_FALTAS and v_u['Pred_Faltas'] == 'Más') or (p['Faltas_real'] < LINEA_FALTAS and v_u['Pred_Faltas'] == 'Menos'):
+                                        pts_totales_partido += 2
+                                        msjs_extras.append("🛑 Faltas (+2)")
+                                    else: msjs_extras.append("❌ Faltas")
+                                
+                                string_resumen = " | ".join(msjs_extras)
+                                if pts_totales_partido > 0:
+                                    st.success(f"🏆 **¡Sumaste +{pts_totales_partido} pts!** ({string_resumen})")
+                                else:
+                                    st.error(f"❌ **0 puntos obtenidos:** ({string_resumen})")
                             else: st.info(f"Finalizado: {res_real}")
                         
                         elif ha_votado:
@@ -348,17 +413,26 @@ with tabs[0]:
                                     st.markdown("<p style='font-size:0.7em; color:#8899A6; text-align:center; font-style:italic;'>Los pronósticos completos se revelan al inicio.</p>", unsafe_allow_html=True)
 
 # ================================
-# TAB 2: RANKING DINÁMICO POR FASES (CON APODOS)
+# TAB 2: RANKING DINÁMICO POR FASES Y RACHAS
 # ================================
 with tabs[1]:
     if not usuarios_ranking: 
         st.info("Sin usuarios.")
     else:
-        pts_data = {u['Id']: {"Jugador (Apodo)": u['Apodo'] if u['Apodo'] else "Sin Apodo", "Global": 0} for u in usuarios_ranking}
+        pts_data = {u['Id']: {"Id": u['Id'], "Jugador (Apodo)": u['Apodo'] if u['Apodo'] else "Sin Apodo", "Global": 0, "Racha_Pts": 0} for u in usuarios_ranking}
         for f in fases_existentes:
             for uid in pts_data: pts_data[uid][f] = 0
+        
+        # Encontrar los últimos 3 partidos que ya tienen resultado para la racha
+        partidos_con_resultado = [p for p in partidos_db if p.get('Resultado_real') and '-' in str(p['Resultado_real'])]
+        # Ordenamos por fecha de forma descendente para tener los más recientes primero
+        try:
+            partidos_con_resultado = sorted(partidos_con_resultado, key=lambda x: datetime.fromisoformat(x['Fecha_hora']).timestamp(), reverse=True)
+        except:
+            pass
+        ultimos_3_partidos_ids = [p['Id'] for p in partidos_con_resultado[:3]]
                 
-        for p in partidos_raw:
+        for p in partidos_db:
             res_real = p.get('Resultado_real')
             c_real = p.get('Corners_real')
             t_real = p.get('Tarjetas_real')
@@ -366,7 +440,7 @@ with tabs[1]:
             
             if res_real and '-' in str(res_real):
                 out_real = get_outcome(res_real)
-                fase_val = p["Fase_Visual"]
+                fase_val = "Fase de Grupos" if "Grupo" in p["Fase"] else p["Fase"]
                 
                 for v in todas_porras:
                     if v['Id_partido'] == p['Id'] and v['Id_usuario'] in pts_data:
@@ -385,7 +459,15 @@ with tabs[1]:
                             
                         if pts_partido > 0:
                             pts_data[v['Id_usuario']]["Global"] += pts_partido
-                            pts_data[v['Id_usuario']][fase_val] += pts_partido
+                            if fase_val in pts_data[v['Id_usuario']]:
+                                pts_data[v['Id_usuario']][fase_val] += pts_partido
+                            
+                            # Si pertenece a los últimos 3 partidos finalizados, sumamos a la racha
+                            if p['Id'] in ultimos_3_partidos_ids:
+                                pts_data[v['Id_usuario']]["Racha_Pts"] += pts_partido
+
+        # MEJORA 3: Encontrar la puntuación máxima de racha para asignar la medalla de fuego 🔥
+        max_racha = max([u["Racha_Pts"] for u in pts_data.values()]) if pts_data else 0
 
         ranking_tabs_names = ["Global"] + fases_existentes
         rk_tabs = st.tabs(ranking_tabs_names)
@@ -405,16 +487,36 @@ with tabs[1]:
                         with c3: st.markdown(f"<div class='podium-bronze'>🥉<br>{ranking_filtrado[2]['Jugador (Apodo)']}<br>{ranking_filtrado[2][rk_name]} pts</div>", unsafe_allow_html=True)
                     st.divider()
                     
-                    df_mostrar = pd.DataFrame(ranking_ordenado)[['Jugador (Apodo)', rk_name]]
-                    df_mostrar.rename(columns={rk_name: 'Puntos'}, inplace=True)
-                    st.dataframe(df_mostrar, use_container_width=True, hide_index=True)
+                    # Preparar tabla final inyectando el emoji de fuego si está en la racha top
+                    final_rows = []
+                    for u in ranking_ordenado:
+                        nombre_visual = u['Jugador (Apodo)']
+                        if u['Racha_Pts'] == max_racha and max_racha > 0:
+                            nombre_visual = f"🔥 {nombre_visual} (En Racha)"
+                        
+                        final_rows.append({
+                            "Jugador (Apodo)": nombre_visual,
+                            "Puntos": u[rk_name],
+                            "Racha (Últ. 3 partidos)": f"{u['Racha_Pts']} pts"
+                        })
+                    
+                    st.dataframe(pd.DataFrame(final_rows), use_container_width=True, hide_index=True)
                 else:
                     st.info(f"Aún no hay puntos repartidos en: {rk_name}")
 
 # ================================
-# TAB 3: REGLAS
+# TAB 3: REGLAS (INCLUYE BOTE RECAUDADO)
 # ================================
 with tabs[2]:
+    # MEJORA 1: Bloque visual impactante del Bote Recaudado
+    st.markdown(f"""
+    <div class='bote-box'>
+        <div style='text-transform: uppercase; letter-spacing: 1.5px; font-size: 0.9em; color: #8899A6; font-weight: 800;'>💰 BOTE ACUMULADO ACTUAL 💰</div>
+        <div class='bote-monto'>{bote_total} €</div>
+        <div style='font-size: 0.8em; color: #6D7E8C; margin-top: 5px;'>Calculado en base a {len(usuarios_pagados)} jugadores validados.</div>
+    </div>
+    """, unsafe_allow_html=True)
+
     st.markdown(f"""
     ### 📜 Reglas de la Porra Mundial 2026
     
@@ -426,6 +528,8 @@ with tabs[2]:
        * 🚩 Córners: **{LINEA_CORNERS}**
        * 🟨 Tarjetas: **{LINEA_TARJETAS}**
        * 🛑 Faltas: **{LINEA_FALTAS}**
+       
+    4. **Indicador de Racha (🔥):** El jugador o jugadores que hayan sumado la mayor cantidad de puntos en los **últimos 3 partidos cerrados** recibirán el distintivo especial de fuego en la tabla de clasificaciones.
     """)
 
 # ================================
