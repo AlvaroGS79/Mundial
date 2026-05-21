@@ -98,7 +98,7 @@ if "Id_usuario" not in st.session_state:
         
         with tab_log:
             with st.form("login_form", border=False):
-                apodo_login = st.text_input("👤 Tu Apodo", placeholder="Ej: El Mosca").strip()
+                apodo_login = st.text_input("👤 Usuario", placeholder="Ej: El Mosca").strip()
                 pass_login = st.text_input("🔒 Contraseña", type="password", placeholder="••••••••")
                 submit_log = st.form_submit_button("ENTRAR")
             
@@ -121,8 +121,8 @@ if "Id_usuario" not in st.session_state:
             with st.form("register_form", border=False):
                 reg_nombre = st.text_input("Nombre", placeholder="Tu nombre")
                 reg_apellidos = st.text_input("Apellidos", placeholder="Tus apellidos")
-                reg_apodo = st.text_input("Apodo (Único para Rankings)", placeholder="Ej: El Mosca").strip()
-                reg_pass = st.text_input("Contraseña de Acceso", type="password", placeholder="Mín. 8 caracteres (letras y números)")
+                reg_apodo = st.text_input("Usuario", placeholder="Ej: El Mosca").strip()
+                reg_pass = st.text_input("Contraseña", type="password", placeholder="Mín. 8 caracteres (letras y números)")
                 submit_reg = st.form_submit_button("COMPLETAR REGISTRO")
                 
             if submit_reg:
@@ -136,7 +136,7 @@ if "Id_usuario" not in st.session_state:
                         # 2. Verificar si el apodo está cogido
                         check_apodo = supabase.table("Usuarios").select("Id").eq("Apodo", reg_apodo).execute()
                         if check_apodo.data:
-                            st.error("❌ Ese apodo ya está registrado por otro jugador. Elige otro.")
+                            st.error("❌ Ese nombre de usuario ya está registrado por otro jugador. Elige otro.")
                         else:
                             try:
                                 nuevo = supabase.table("Usuarios").insert({
