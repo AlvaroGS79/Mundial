@@ -231,7 +231,7 @@ if st.session_state["view_partido"]:
             st.markdown("<hr style='margin: 15px 0px; border: none; border-top: 1px solid #1E2A38;'>", unsafe_allow_html=True)
             
             if p.get("Corners_real") is not None:
-                st.markdown(f"<p style='text-align:center; color:#8899A6;'>Estadísticas Finales: 🚩 {p['Corners_real']} | 🟨 {p['Tarjetas_real']} | 🛑 {p['Faltas_real']}</p>", unsafe_allow_html=True)
+                st.markdown(f"<p style='text-align:center; color:#8899A6;'>Estadísticas Finales: 🚩 {p['Corners_real']} | 🟨 {p['Tarjetas_real']} | 🩼 {p['Faltas_real']}</p>", unsafe_allow_html=True)
             
             st.subheader("📊 Pronósticos de la comunidad")
             
@@ -348,7 +348,7 @@ with tabs[0]:
                                 if p.get('Faltas_real') is not None and v_u.get('Pred_Faltas'):
                                     if (p['Faltas_real'] > LINEA_FALTAS and v_u['Pred_Faltas'] == 'Más') or (p['Faltas_real'] < LINEA_FALTAS and v_u['Pred_Faltas'] == 'Menos'):
                                         pts_totales_partido += 2
-                                        msjs_extras.append("🛑 Faltas (+2)")
+                                        msjs_extras.append("🩼 Faltas (+2)")
                                     else: msjs_extras.append("❌ Faltas")
                                 
                                 string_resumen = " | ".join(msjs_extras)
@@ -375,7 +375,7 @@ with tabs[0]:
                             ex1, ex2, ex3 = st.columns(3)
                             with ex1: pred_c = st.selectbox(f"🚩 Córners (+{LINEA_CORNERS})", ["-", "Más", "Menos"], key=f"c_{p['Id']}")
                             with ex2: pred_t = st.selectbox(f"🟨 Tarjetas (+{LINEA_TARJETAS})", ["-", "Más", "Menos"], key=f"t_{p['Id']}")
-                            with ex3: pred_f = st.selectbox(f"🛑 Faltas (+{LINEA_FALTAS})", ["-", "Más", "Menos"], key=f"f_{p['Id']}")
+                            with ex3: pred_f = st.selectbox(f"🩼 Faltas (+{LINEA_FALTAS})", ["-", "Más", "Menos"], key=f"f_{p['Id']}")
 
                             if st.button("Confirmar Pronóstico", key=f"b_{p['Id']}", use_container_width=True):
                                 val_bd = f"{g_loc}-{g_vis}"
