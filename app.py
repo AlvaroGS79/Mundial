@@ -360,7 +360,7 @@ with tabs[0]:
                         
                         elif ha_votado:
                             v = votos_usuario[p['Id']]
-                            st.info(f"✅ Tu pronóstico: **{v['Prediccion']}** | 🚩 {v.get('Pred_Corners','-')} | 🟨 {v.get('Pred_Tarjetas','-')} | 🛑 {v.get('Pred_Faltas','-')}")
+                            st.info(f"✅ Tu pronóstico: **{v['Prediccion']}** | 🚩 {v.get('Pred_Corners','-')} | 🟨 {v.get('Pred_Tarjetas','-')} | 🩼 {v.get('Pred_Faltas','-')}")
                         
                         elif fecha_p > hora_actual_espana:
                             st.markdown("<p style='text-align:center; font-size: 0.9em; color:#8899A6; margin-bottom:5px; font-weight:bold;'>1. Marcador Exacto</p>", unsafe_allow_html=True)
