@@ -192,9 +192,12 @@ for p in partidos_raw:
 
 todos_usuarios_raw = supabase.table("Usuarios").select("Id, Apodo, Puntos, Estado").order("Puntos", desc=True).execute().data
 dict_nombres = {u['Id']: u['Apodo'] if u['Apodo'] else f"User_{u['Id']}" for u in todos_usuarios_raw}
-usuarios_ranking = todos_usuarios_raw
 
-usuarios_pagados = [u for u in todos_usuarios_raw if u.get("Estado") == "Pagado"]
+# MODIFICACIÓN DE SEGURIDAD: Ocultamos completamente al Admin de los Rankings
+usuarios_ranking = [u for u in todos_usuarios_raw if u["Apodo"] != ADMIN_NOMBRE]
+
+# El cálculo del bote solo tiene en cuenta a los jugadores reales validados (excluyendo admin si estuviese pagado)
+usuarios_pagados = [u for u in usuarios_ranking if u.get("Estado") == "Pagado"]
 bote_total = len(usuarios_pagados) * 20
 
 hora_actual_espana = datetime.now(timezone.utc) + timedelta(hours=2) 
@@ -231,7 +234,9 @@ if st.session_state["view_partido"]:
                 st.markdown(f"<p style='text-align:center; color:#8899A6;'>Estadísticas Finales: 🚩 {p['Corners_real']} | 🟨 {p['Tarjetas_real']} | 🛑 {p['Faltas_real']}</p>", unsafe_allow_html=True)
             
             st.subheader("📊 Pronósticos de la comunidad")
-            votos_p = [v for v in todas_porras if v['Id_partido'] == p['Id']]
+            
+            # MODIFICACIÓN DE SEGURIDAD: Filtramos los votos para que nunca se muestren apuestas hechas por el admin (AGS)
+            votos_p = [v for v in todas_porras if v['Id_partido'] == p['Id'] and dict_nombres.get(v['Id_usuario']) != ADMIN_NOMBRE]
             
             if votos_p:
                 data_list = []
@@ -243,7 +248,6 @@ if st.session_state["view_partido"]:
                         o_real = get_outcome(r_real)
                         o_voto = get_outcome(v['Prediccion'])
                         
-                        # MEJORA SOLICITADA: Reflejar en el desglose que se suman los 15 + 5 = 20 pts
                         if v['Prediccion'] == r_real:
                             row["Resultado"] = f"{v['Prediccion']} 🎯 (+20)"
                         elif o_voto == o_real and o_real is not None:
@@ -320,7 +324,6 @@ with tabs[0]:
                                 pts_totales_partido = 0
                                 msjs_extras = []
                                 
-                                # MEJORA SOLICITADA: Si hay pleno exacto, se le suman acumulados los 15 + los 5 del signo = 20 puntos
                                 if mi_voto == res_real:
                                     pts_totales_partido += 20
                                     msjs_extras.append("🎯 Pleno Marcador Exacto (+20)")
@@ -392,7 +395,8 @@ with tabs[0]:
                         else: st.warning("🔒 Cerrado.")
 
                         if ha_votado or p.get('Resultado_real'):
-                            votos_p = [v for v in todas_porras if v['Id_partido'] == p['Id'] and get_outcome(v['Prediccion'])]
+                            # MODIFICACIÓN DE SEGURIDAD: Excluir los votos del admin en el cálculo de la barra de tendencia general
+                            votos_p = [v for v in todas_porras if v['Id_partido'] == p['Id'] and get_outcome(v['Prediccion']) and dict_nombres.get(v['Id_usuario']) != ADMIN_NOMBRE]
                             if votos_p:
                                 n_total = len(votos_p)
                                 p_l = sum(1 for v in votos_p if get_outcome(v['Prediccion']) == '1') / n_total
@@ -448,7 +452,6 @@ with tabs[1]:
                         pts_partido = 0
                         pred = str(v['Prediccion'])
                         if '-' in pred:
-                            # MEJORA SOLICITADA: Cambiado de asignación excluyente a sumatorio acumulado (15 + 5 = 20 pts)
                             if pred == res_real: pts_partido += 20
                             elif get_outcome(pred) == out_real: pts_partido += 5
                         
@@ -564,7 +567,6 @@ if es_admin:
                     pts_sum = 0
                     pred = str(v['Prediccion'])
                     if '-' in pred:
-                        # MEJORA SOLICITADA: Cambiado de asignación excluyente a sumatorio acumulado (15 + 5 = 20 pts)
                         if pred == gan_str: pts_sum += 20
                         elif get_outcome(pred) == out_real: pts_sum += 5
                     
