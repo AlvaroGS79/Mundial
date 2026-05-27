@@ -164,7 +164,7 @@ if "Id_usuario" not in st.session_state:
 if st.session_state.get("Estado") == "Pendiente":
     st.title("🔒 Cuenta Inactiva")
     st.warning(f"Hola {st.session_state['Apodo']}, activa tu cuenta para jugar.")
-    st.info("Entrega 20€ en efectivo a cualquiera de los administradores (Kurlander, Chema o Álvaro).")
+    st.info("Entrega 30€ en efectivo a cualquiera de los administradores (Kurlander, Chema o Álvaro).")
     if st.button("🔄 Comprobar Pago"):
         res = supabase.table("Usuarios").select("Estado").eq("Id", st.session_state["Id_usuario"]).execute()
         st.session_state["Estado"] = res.data[0]["Estado"]; st.rerun()
