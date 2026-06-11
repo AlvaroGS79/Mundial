@@ -198,7 +198,7 @@ usuarios_ranking = [u for u in todos_usuarios_raw if u["Apodo"] != ADMIN_NOMBRE]
 
 # El cálculo del bote solo tiene en cuenta a los jugadores reales validados (excluyendo admin si estuviese pagado)
 usuarios_pagados = [u for u in usuarios_ranking if u.get("Estado") == "Pagado"]
-bote_total = len(usuarios_pagados) * 20
+bote_total = len(usuarios_pagados) * 30
 
 hora_actual_espana = datetime.now(timezone.utc) + timedelta(hours=2) 
 todas_porras = supabase.table("Porras").select("*").execute().data
