@@ -176,10 +176,13 @@ es_admin = st.session_state["Apodo"] == ADMIN_NOMBRE
 
 partidos_db = supabase.table("Partidos").select("*").execute().data
 
+# MODIFICACIÓN: Ordenar estrictamente por fecha (más reciente/cercana primero) sin agrupar por Fase/Grupo
 def sort_matches(p):
-    try: dt = datetime.fromisoformat(p['Fecha_hora']).timestamp()
-    except: dt = float('inf')
-    return (p['Fase'], dt)
+    try: 
+        dt = datetime.fromisoformat(p['Fecha_hora']).timestamp()
+    except: 
+        dt = 0
+    return dt
 
 partidos_raw = sorted(partidos_db, key=sort_matches)
 
