@@ -207,7 +207,8 @@ hora_actual_espana = datetime.now(timezone.utc) + timedelta(hours=2)
 todas_porras = supabase.table("Porras").select("*").execute().data
 
 # --- NUEVO PROCESAMIENTO GLOBAL DINÁMICO DE PUNTOS ---
-# Esto calcula los puntos en tiempo real para que coincidan siempre la barra lateral y los rankings
+# Definimos el orden cronológico de las fases aquí arriba para evitar el NameError
+orden_fases = ["Fase de Grupos", "Dieciseisavos", "Octavos", "Cuartos", "Semifinales", "3º y 4º Puesto", "Final"]
 fases_existentes = sorted(list(set(p["Fase_Visual"] for p in partidos_raw)), key=lambda x: orden_fases.index(x) if x in orden_fases else 99)
 
 pts_data = {u['Id']: {"Id": u['Id'], "Jugador (Apodo)": u['Apodo'] if u['Apodo'] else "Sin Apodo", "Global": 0, "Racha_Pts": 0} for u in todos_usuarios_raw}
@@ -259,7 +260,7 @@ for p in partidos_db:
 
 with st.sidebar:
     st.sidebar.markdown(f"<h2 style='text-align: center;'><span class='text-gradient'>👤 {st.session_state['Apodo']}</span></h2>", unsafe_allow_html=True)
-    # MODIFICACIÓN CLAVE: Cambiado para que lea mi_puntos_dinamicos en lugar de usar la columna de Supabase
+    # Puntos dinámicos basados en cálculos exactos del historial
     mi_puntos_dinamicos = pts_data.get(st.session_state['Id_usuario'], {}).get("Global", 0)
     st.metric("Tus Puntos Totales", mi_puntos_dinamicos)
     if st.button("🚪 Cerrar Sesión"): st.session_state.clear(); st.rerun()
