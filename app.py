@@ -176,7 +176,7 @@ es_admin = st.session_state["Apodo"] == ADMIN_NOMBRE
 
 partidos_db = supabase.table("Partidos").select("*").execute().data
 
-# MODIFICACIÓN: Ordenar estrictamente por fecha (más reciente/cercana primero) sin agrupar por Fase/Grupo
+# Ordenar estrictamente por fecha (más reciente/cercana primero) sin agrupar por Fase/Grupo
 def sort_matches(p):
     try: 
         dt = datetime.fromisoformat(p['Fecha_hora']).timestamp()
@@ -196,20 +196,72 @@ for p in partidos_raw:
 todos_usuarios_raw = supabase.table("Usuarios").select("Id, Apodo, Puntos, Estado").order("Puntos", desc=True).execute().data
 dict_nombres = {u['Id']: u['Apodo'] if u['Apodo'] else f"User_{u['Id']}" for u in todos_usuarios_raw}
 
-# MODIFICACIÓN DE SEGURIDAD: Ocultamos completamente al Admin de los Rankings
+# Ocultamos completamente al Admin de los Rankings
 usuarios_ranking = [u for u in todos_usuarios_raw if u["Apodo"] != ADMIN_NOMBRE]
 
-# El cálculo del bote solo tiene en cuenta a los jugadores reales validados (excluyendo admin si estuviese pagado)
+# El cálculo del bote solo tiene en cuenta a los jugadores reales validados
 usuarios_pagados = [u for u in usuarios_ranking if u.get("Estado") == "Pagado"]
 bote_total = len(usuarios_pagados) * 30
 
 hora_actual_espana = datetime.now(timezone.utc) + timedelta(hours=2) 
 todas_porras = supabase.table("Porras").select("*").execute().data
 
+# --- NUEVO PROCESAMIENTO GLOBAL DINÁMICO DE PUNTOS ---
+# Esto calcula los puntos en tiempo real para que coincidan siempre la barra lateral y los rankings
+fases_existentes = sorted(list(set(p["Fase_Visual"] for p in partidos_raw)), key=lambda x: orden_fases.index(x) if x in orden_fases else 99)
+
+pts_data = {u['Id']: {"Id": u['Id'], "Jugador (Apodo)": u['Apodo'] if u['Apodo'] else "Sin Apodo", "Global": 0, "Racha_Pts": 0} for u in todos_usuarios_raw}
+# Inicializar todas las fases para cada usuario
+for p in partidos_raw:
+    f_vis = p["Fase_Visual"]
+    for uid in pts_data:
+        if f_vis not in pts_data[uid]:
+            pts_data[uid][f_vis] = 0
+
+partidos_con_resultado = [p for p in partidos_db if p.get('Resultado_real') and '-' in str(p['Resultado_real'])]
+try:
+    partidos_con_resultado = sorted(partidos_con_resultado, key=lambda x: datetime.fromisoformat(x['Fecha_hora']).timestamp(), reverse=True)
+except:
+    pass
+ultimos_3_partidos_ids = [p['Id'] for p in partidos_con_resultado[:3]]
+
+for p in partidos_db:
+    res_real = p.get('Resultado_real')
+    c_real = p.get('Corners_real')
+    t_real = p.get('Tarjetas_real')
+    f_real = p.get('Faltas_real')
+    
+    if res_real and '-' in str(res_real):
+        out_real = get_outcome(res_real)
+        fase_val = p["Fase_Visual"]
+        
+        for v in todas_porras:
+            if v['Id_partido'] == p['Id'] and v['Id_usuario'] in pts_data:
+                pts_partido = 0
+                pred = str(v['Prediccion'])
+                if '-' in pred:
+                    if pred == res_real: pts_partido += 20
+                    elif get_outcome(pred) == out_real: pts_partido += 5
+                
+                if c_real is not None and v.get('Pred_Corners'):
+                    if (c_real > LINEA_CORNERS and v['Pred_Corners'] == 'Más') or (c_real < LINEA_CORNERS and v['Pred_Corners'] == 'Menos'): pts_partido += 2
+                if t_real is not None and v.get('Pred_Tarjetas'):
+                    if (t_real > LINEA_TARJETAS and v['Pred_Tarjetas'] == 'Más') or (t_real < LINEA_TARJETAS and v['Pred_Tarjetas'] == 'Menos'): pts_partido += 2
+                if f_real is not None and v.get('Pred_Faltas'):
+                    if (f_real > LINEA_FALTAS and v['Pred_Faltas'] == 'Más') or (f_real < LINEA_FALTAS and v['Pred_Faltas'] == 'Menos'): pts_partido += 2
+                    
+                if pts_partido > 0:
+                    pts_data[v['Id_usuario']]["Global"] += pts_partido
+                    pts_data[v['Id_usuario']][fase_val] += pts_partido
+                    
+                    if p['Id'] in ultimos_3_partidos_ids:
+                        pts_data[v['Id_usuario']]["Racha_Pts"] += pts_partido
+
 with st.sidebar:
     st.sidebar.markdown(f"<h2 style='text-align: center;'><span class='text-gradient'>👤 {st.session_state['Apodo']}</span></h2>", unsafe_allow_html=True)
-    mi_puntos = next((u['Puntos'] for u in todos_usuarios_raw if u['Id'] == st.session_state['Id_usuario']), 0)
-    st.metric("Tus Puntos Totales", mi_puntos)
+    # MODIFICACIÓN CLAVE: Cambiado para que lea mi_puntos_dinamicos en lugar de usar la columna de Supabase
+    mi_puntos_dinamicos = pts_data.get(st.session_state['Id_usuario'], {}).get("Global", 0)
+    st.metric("Tus Puntos Totales", mi_puntos_dinamicos)
     if st.button("🚪 Cerrar Sesión"): st.session_state.clear(); st.rerun()
 
 # --- LÓGICA DE PANTALLA DE DETALLE DE PARTIDO ---
