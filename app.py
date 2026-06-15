@@ -338,9 +338,17 @@ if st.session_state["view_partido"]:
                 st.info("Nadie votó en este partido.")
     st.stop()
 
-# --- 6. TABS (VISTA PRINCIPAL) ---
+## --- 6. TABS (VISTA PRINCIPAL) ---
 orden_fases = ["Fase de Grupos", "Dieciseisavos", "Octavos", "Cuartos", "Semifinales", "3º y 4º Puesto", "Final"]
 fases_existentes = sorted(list(set(p["Fase_Visual"] for p in partidos_raw)), key=lambda x: orden_fases.index(x) if x in orden_fases else 99)
+
+# TRUCO DE JAVASCRIPT: Fuerza al navegador a subir arriba del todo al cargar o interactuar
+st.markdown("""
+    <script>
+        var body = window.parent.document.querySelector(".main");
+        if (body) { body.scrollTop = 0; }
+    </script>
+""", unsafe_allow_html=True)
 
 tabs_labels = ["📅 Partidos", "🏆 Ranking", "📜 Reglas"]
 if es_admin: tabs_labels.append("🛠️ Admin")
@@ -357,6 +365,9 @@ with tabs[0]:
         
         for i, fase_tab in enumerate(fases_existentes):
             with sub_tabs[i]:
+                # Volvemos a forzar el scroll hacia arriba al cambiar entre sub-pestañas de fases
+                st.markdown("<script>window.parent.document.querySelector('.main').scrollTop = 0;</script>", unsafe_allow_html=True)
+                
                 for p in [x for x in partidos_raw if x["Fase_Visual"] == fase_tab]:
                     with st.container(border=True):
                         fecha_p = datetime.fromisoformat(p['Fecha_hora']).replace(tzinfo=timezone.utc)
@@ -404,7 +415,7 @@ with tabs[0]:
                                 if p.get('Faltas_real') is not None and v_u.get('Pred_Faltas'):
                                     if (p['Faltas_real'] > LINEA_FALTAS and v_u['Pred_Faltas'] == 'Más') or (p['Faltas_real'] < LINEA_FALTAS and v_u['Pred_Faltas'] == 'Menos'):
                                         pts_totales_partido += 2
-                                        msjs_extras.append("🩼 Faltas (+2)")
+                                        msjs_extras.append("🛑 Faltas (+2)")
                                     else: msjs_extras.append("❌ Faltas")
                                 
                                 string_resumen = " | ".join(msjs_extras)
@@ -451,7 +462,6 @@ with tabs[0]:
                         else: st.warning("🔒 Cerrado.")
 
                         if ha_votado or p.get('Resultado_real'):
-                            # MODIFICACIÓN DE SEGURIDAD: Excluir los votos del admin en el cálculo de la barra de tendencia general
                             votos_p = [v for v in todas_porras if v['Id_partido'] == p['Id'] and get_outcome(v['Prediccion']) and dict_nombres.get(v['Id_usuario']) != ADMIN_NOMBRE]
                             if votos_p:
                                 n_total = len(votos_p)
@@ -474,7 +484,6 @@ with tabs[0]:
                                         st.rerun()
                                 else:
                                     st.markdown("<p style='font-size:0.7em; color:#8899A6; text-align:center; font-style:italic;'>Los pronósticos completos se revelan al inicio.</p>", unsafe_allow_html=True)
-
 # ================================
 # TAB 2: RANKING DINÁMICO POR FASES Y RACHAS
 # ================================
