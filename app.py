@@ -593,7 +593,7 @@ with tabs[4]:
 
     try:
         # Traer los últimos 40 mensajes del chat ordenados por fecha
-        mensajes_db = supabase.table("chat").select("*").order("Creado_en", desc=True).limit(40).execute().data
+        mensajes_db = supabase.table("Chat").select("*").order("Creado_en", desc=True).limit(40).execute().data
         mensajes_db.reverse() # Invertir para leer de antiguo a nuevo
         
         if not mensajes_db:
