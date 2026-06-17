@@ -590,7 +590,7 @@ with tabs[3]:
 # TAB 5: CHAT GLOBAL DE LA COMUNIDAD
 # ================================
 with tabs[4]:
-    st.markdown("<h3 style='text-align: center;'><span class='text-gradient'>💬 CHAT DE LA PORRA</span></h3>", unsafe_allow_html=True)
+    st.markdown("<h3 style='text-align: center;'><span class='text-gradient'>💬 CHAT</span></h3>", unsafe_allow_html=True)
     
     # 1. Carga de mensajes (Los más nuevos primero para combinarse con el column-reverse)
     try:
