@@ -206,6 +206,10 @@ bote_total = len(usuarios_pagados) * 30
 hora_actual_espana = datetime.now(timezone.utc) + timedelta(hours=2) 
 todas_porras = supabase.table("Porras").select("*").execute().data
 
+# --- CARGA DEL CHAT ---
+mensajes_chat = supabase.table("Chat").select("*, Usuarios(Apodo)").order("Fecha_hora", desc=True).limit(50).execute().data
+mensajes_chat.reverse()  # Para que los más nuevos salgan abajo
+
 # --- NUEVO PROCESAMIENTO GLOBAL DINÁMICO DE PUNTOS ---
 # Definimos el orden cronológico de las fases aquí arriba para evitar el NameError
 orden_fases = ["Fase de Grupos", "Dieciseisavos", "Octavos", "Cuartos", "Semifinales", "3º y 4º Puesto", "Final"]
@@ -338,7 +342,7 @@ if st.session_state["view_partido"]:
                 st.info("Nadie votó en este partido.")
     st.stop()
 
-## --- 6. TABS (VISTA PRINCIPAL) ---
+# --- 6. TABS (VISTA PRINCIPAL) ---
 orden_fases = ["Fase de Grupos", "Dieciseisavos", "Octavos", "Cuartos", "Semifinales", "3º y 4º Puesto", "Final"]
 fases_existentes = sorted(list(set(p["Fase_Visual"] for p in partidos_raw)), key=lambda x: orden_fases.index(x) if x in orden_fases else 99)
 
@@ -350,7 +354,8 @@ st.markdown("""
     </script>
 """, unsafe_allow_html=True)
 
-tabs_labels = ["📅 Partidos", "🏆 Ranking", "📜 Reglas"]
+# MODIFICACIÓN: Añadimos "💬 Chat" a las pestañas principales en la posición 3
+tabs_labels = ["📅 Partidos", "🏆 Ranking", "💬 Chat", "📜 Reglas"]
 if es_admin: tabs_labels.append("🛠️ Admin")
 tabs = st.tabs(tabs_labels)
 
@@ -484,6 +489,7 @@ with tabs[0]:
                                         st.rerun()
                                 else:
                                     st.markdown("<p style='font-size:0.7em; color:#8899A6; text-align:center; font-style:italic;'>Los pronósticos completos se revelan al inicio.</p>", unsafe_allow_html=True)
+
 # ================================
 # TAB 2: RANKING DINÁMICO POR FASES Y RACHAS
 # ================================
@@ -491,58 +497,15 @@ with tabs[1]:
     if not usuarios_ranking: 
         st.info("Sin usuarios.")
     else:
-        pts_data = {u['Id']: {"Id": u['Id'], "Jugador (Apodo)": u['Apodo'] if u['Apodo'] else "Sin Apodo", "Global": 0, "Racha_Pts": 0} for u in usuarios_ranking}
-        for f in fases_existentes:
-            for uid in pts_data: pts_data[uid][f] = 0
-        
-        partidos_con_resultado = [p for p in partidos_db if p.get('Resultado_real') and '-' in str(p['Resultado_real'])]
-        try:
-            partidos_con_resultado = sorted(partidos_con_resultado, key=lambda x: datetime.fromisoformat(x['Fecha_hora']).timestamp(), reverse=True)
-        except:
-            pass
-        ultimos_3_partidos_ids = [p['Id'] for p in partidos_con_resultado[:3]]
-                
-        for p in partidos_db:
-            res_real = p.get('Resultado_real')
-            c_real = p.get('Corners_real')
-            t_real = p.get('Tarjetas_real')
-            f_real = p.get('Faltas_real')
-            
-            if res_real and '-' in str(res_real):
-                out_real = get_outcome(res_real)
-                fase_val = "Fase de Grupos" if "Grupo" in p["Fase"] else p["Fase"]
-                
-                for v in todas_porras:
-                    if v['Id_partido'] == p['Id'] and v['Id_usuario'] in pts_data:
-                        pts_partido = 0
-                        pred = str(v['Prediccion'])
-                        if '-' in pred:
-                            if pred == res_real: pts_partido += 20
-                            elif get_outcome(pred) == out_real: pts_partido += 5
-                        
-                        if c_real is not None and v.get('Pred_Corners'):
-                            if (c_real > LINEA_CORNERS and v['Pred_Corners'] == 'Más') or (c_real < LINEA_CORNERS and v['Pred_Corners'] == 'Menos'): pts_partido += 2
-                        if t_real is not None and v.get('Pred_Tarjetas'):
-                            if (t_real > LINEA_TARJETAS and v['Pred_Tarjetas'] == 'Más') or (t_real < LINEA_TARJETAS and v['Pred_Tarjetas'] == 'Menos'): pts_partido += 2
-                        if f_real is not None and v.get('Pred_Faltas'):
-                            if (f_real > LINEA_FALTAS and v['Pred_Faltas'] == 'Más') or (f_real < LINEA_FALTAS and v['Pred_Faltas'] == 'Menos'): pts_partido += 2
-                            
-                        if pts_partido > 0:
-                            pts_data[v['Id_usuario']]["Global"] += pts_partido
-                            if fase_val in pts_data[v['Id_usuario']]:
-                                pts_data[v['Id_usuario']][fase_val] += pts_partido
-                            
-                            if p['Id'] in ultimos_3_partidos_ids:
-                                pts_data[v['Id_usuario']]["Racha_Pts"] += pts_partido
-
-        max_racha = max([u["Racha_Pts"] for u in pts_data.values()]) if pts_data else 0
-
         ranking_tabs_names = ["Global"] + fases_existentes
         rk_tabs = st.tabs(ranking_tabs_names)
         
+        ranking_usuarios_filtrado = {uid: datos for uid, datos in pts_data.items() if datos["Jugador (Apodo)"] != ADMIN_NOMBRE}
+        max_racha = max([u["Racha_Pts"] for u in ranking_usuarios_filtrado.values()]) if ranking_usuarios_filtrado else 0
+        
         for i, rk_name in enumerate(ranking_tabs_names):
             with rk_tabs[i]:
-                ranking_ordenado = sorted(pts_data.values(), key=lambda x: x[rk_name], reverse=True)
+                ranking_ordenado = sorted(ranking_usuarios_filtrado.values(), key=lambda x: x[rk_name], reverse=True)
                 ranking_filtrado = [u for u in ranking_ordenado if u[rk_name] > 0]
                 
                 if ranking_filtrado:
@@ -572,9 +535,65 @@ with tabs[1]:
                     st.info(f"Aún no hay puntos repartidos en: {rk_name}")
 
 # ================================
-# TAB 3: REGLAS
+# TAB 3: CHAT GLOBAL DE LA COMUNIDAD
 # ================================
 with tabs[2]:
+    st.markdown("<h3 style='text-align: center;'><span class='text-gradient'>💬 CHAT DE LA PORRA</span></h3>", unsafe_allow_html=True)
+    
+    # Contenedor visual con scroll vertical fijo para simular una app de chat
+    chat_html = "<div style='background-color: #111A24; border: 1px solid #1E2A38; border-radius: 16px; padding: 15px; height: 350px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; margin-bottom: 20px;'>"
+    
+    if 'mensajes_chat' not in locals() or not mensajes_chat:
+        chat_html += "<p style='color: #8899A6; text-align: center; font-style: italic; margin: auto;'>¡Nadie ha hablado aún! Rompe el hielo...</p>"
+    else:
+        for msg in mensajes_chat:
+            autor = msg.get("Usuarios", {}).get("Apodo", "Anon")
+            texto = msg.get("Mensaje", "")
+            
+            try:
+                dt_msg = datetime.fromisoformat(msg["Fecha_hora"].replace("Z", "+00:00")) + timedelta(hours=2)
+                hora_str = dt_msg.strftime("%H:%M")
+            except:
+                hora_str = ""
+            
+            # Burbuja derecha (Verde) si el mensaje es del usuario actual
+            if autor == st.session_state["Apodo"]:
+                chat_html += f"""
+                <div style='align-self: flex-end; background: linear-gradient(135deg, #00C853, #00E676); color: #060D13; padding: 8px 14px; border-radius: 16px 16px 2px 16px; max-width: 80%; box-shadow: 0 2px 4px rgba(0,0,0,0.2);'>
+                    <div style='font-size: 0.75em; font-weight: 900; opacity: 0.8; margin-bottom: 2px;'>Tú ({hora_str})</div>
+                    <div style='font-size: 0.95em; font-weight: 500;'>{texto}</div>
+                </div>
+                """
+            # Burbuja izquierda (Gris) si es de otro usuario de la comunidad
+            else:
+                chat_html += f"""
+                <div style='align-self: flex-start; background-color: #1A2433; color: #E1E8ED; padding: 8px 14px; border-radius: 16px 16px 16px 2px; max-width: 80%; border: 1px solid #2C3E50;'>
+                    <div style='font-size: 0.75em; font-weight: 800; color: #00E676; margin-bottom: 2px;'>{autor} <span style='color: #8899A6; font-weight: 400;'>({hora_str})</span></div>
+                    <div style='font-size: 0.95em;'>{texto}</div>
+                </div>
+                """
+    chat_html += "</div>"
+    st.markdown(chat_html, unsafe_allow_html=True)
+    
+    # Formulario inline inferior para enviar mensajes
+    with st.form("form_enviar_chat", clear_on_submit=True, border=False):
+        c_txt, c_btn = st.columns([4, 1])
+        with c_txt:
+            nuevo_msg = st.text_input("Escribe tu mensaje...", placeholder="Ej: ¡Vaya robo de partido! 🤬", label_visibility="collapsed").strip()
+        with c_btn:
+            enviar = st.form_submit_button("ENVIAR")
+            
+        if enviar and nuevo_msg:
+            supabase.table("Chat").insert({
+                "Id_usuario": st.session_state["Id_usuario"],
+                "Mensaje": nuevo_msg
+            }).execute()
+            st.rerun()
+
+# ================================
+# TAB 4: REGLAS
+# ================================
+with tabs[3]:
     st.markdown(f"""
     <div class='bote-box'>
         <div style='text-transform: uppercase; letter-spacing: 1.5px; font-size: 0.9em; color: #8899A6; font-weight: 800;'>💰 BOTE ACUMULADO ACTUAL 💰</div>
@@ -586,11 +605,13 @@ with tabs[2]:
     st.markdown(f"""
     ### 📜 Reglas de la Porra Mundial 2026
     
-    1. **Ganador o Empate (5 Puntos):** Recibirás **5 puntos** si logras acertar qué equipo ganará el encuentro o si el partido terminará en empate. *(Por ejemplo, si apuestas un 2-0 y el partido queda 1-0, te llevas los 5 puntos).*
+    1. **Ganador o Empate (5 Puntos):** Recibirás **5 puntos** si logras acertar qué equipo ganará el encuentro o si el partido terminará en empate.
+    *(Por ejemplo, si apuestas un 2-0 y el partido queda 1-0, te llevas los 5 puntos).*
        
     2. **Resultado Exacto (20 Puntos):** Recibirás **20 puntos en total** (15 del marcador exacto + 5 del ganador acumulados) si consigues acertar la cantidad exacta de goles que marcará cada equipo (ejemplo: 2-1, 0-0, 3-0).
     
-    3. **Mercados Extra (+2 Puntos c/u):** Cada acierto en Más/Menos sumará 2 puntos extra (máximo 6 extra por partido). Las líneas oficiales son:
+    3. **Mercados Extra (+2 Puntos c/u):** Cada acierto en Más/Menos sumará 2 puntos extra (máximo 6 extra por partido).
+    Las líneas oficiales son:
        * 🚩 Córners: **{LINEA_CORNERS}**
        * 🟨 Tarjetas: **{LINEA_TARJETAS}**
        * 🛑 Faltas: **{LINEA_FALTAS}**
@@ -599,10 +620,10 @@ with tabs[2]:
     """)
 
 # ================================
-# TAB 4: ADMIN
+# TAB 5: ADMIN
 # ================================
 if es_admin:
-    with tabs[3]:
+    with tabs[4]:
         st.subheader("🛠️ Panel Admin")
         p_admin = [p for p in partidos_raw if not p.get('Resultado_real') and datetime.fromisoformat(p['Fecha_hora']).replace(tzinfo=timezone.utc) < hora_actual_espana]
         if p_admin:
