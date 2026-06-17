@@ -593,6 +593,14 @@ with tabs[3]:
 with tabs[4]:
     st.markdown("<h3 style='text-align: center;'><span class='text-gradient'>💬 CHAT DE LA PORRA</span></h3>", unsafe_allow_html=True)
     
+    # 🔄 REMEDIO: Forzar la recarga en tiempo real de los mensajes justo antes de pintar
+    try:
+        res_chat = supabase.table("Chat").select("*, Usuarios(Apodo)").order("Fecha_hora", desc=True).limit(40).execute()
+        mensajes_chat = res_chat.data
+        mensajes_chat.reverse()  # Orden cronológico descendiente hacia abajo
+    except Exception as e:
+        pass
+
     # Contenedor visual con scroll vertical fijo para simular una app de chat
     chat_html = "<div style='background-color: #111A24; border: 1px solid #1E2A38; border-radius: 16px; padding: 15px; height: 350px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; margin-bottom: 20px;'>"
     
@@ -600,7 +608,7 @@ with tabs[4]:
         chat_html += "<p style='color: #8899A6; text-align: center; font-style: italic; margin: auto;'>¡Nadie ha hablado aún! Rompe el hielo...</p>"
     else:
         for msg in mensajes_chat:
-            autor = msg.get("Usuarios", {}).get("Apodo", "Anon")
+            autor = msg.get("Usuarios", {}).get("Apodo", "Anon") if msg.get("Usuarios") else "Anon"
             texto = msg.get("Mensaje", "")
             
             try:
@@ -637,11 +645,14 @@ with tabs[4]:
             enviar = st.form_submit_button("ENVIAR")
             
         if enviar and nuevo_msg:
-            supabase.table("Chat").insert({
-                "Id_usuario": st.session_state["Id_usuario"],
-                "Mensaje": nuevo_msg
-            }).execute()
-            st.rerun()
+            try:
+                supabase.table("Chat").insert({
+                    "Id_usuario": st.session_state["Id_usuario"],
+                    "Mensaje": nuevo_msg
+                }).execute()
+                st.rerun()
+            except Exception as e:
+                st.error(f"Error al enviar: {e}")
 
 
 # ================================
