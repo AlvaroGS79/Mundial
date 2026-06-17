@@ -584,9 +584,9 @@ with tabs[3]:
 
 
 # ================================
-# TAB 3: CHAT GLOBAL DE LA COMUNIDAD
+# TAB 5: CHAT GLOBAL DE LA COMUNIDAD
 # ================================
-with tabs[2]:
+with tabs[4]:
     st.markdown("<h3 style='text-align: center;'><span class='text-gradient'>💬 CHAT DE LA PORRA</span></h3>", unsafe_allow_html=True)
     
     # Contenedor visual con scroll vertical fijo para simular una app de chat
