@@ -198,6 +198,10 @@ bote_total = len(usuarios_pagados) * 30
 hora_actual_espana = datetime.now(timezone.utc) + timedelta(hours=2) 
 todas_porras = supabase.table("Porras").select("*").execute().data
 
+# --- CARGA DEL CHAT ---
+mensajes_chat = supabase.table("Chat").select("*, Usuarios(Apodo)").order("Fecha_hora", desc=True).limit(50).execute().data
+mensajes_chat.reverse()  # Para que los más nuevos salgan abajo
+
 with st.sidebar:
     st.sidebar.markdown(f"<h2 style='text-align: center;'><span class='text-gradient'>👤 {st.session_state['Apodo']}</span></h2>", unsafe_allow_html=True)
     mi_puntos = next((u['Puntos'] for u in todos_usuarios_raw if u['Id'] == st.session_state['Id_usuario']), 0)
