@@ -592,77 +592,15 @@ with tabs[3]:
 with tabs[4]:
     st.markdown("<h3 style='text-align: center;'><span class='text-gradient'>💬 CHAT DE LA PORRA</span></h3>", unsafe_allow_html=True)
     
-    # 1. Carga de mensajes en tiempo real con sus autores
+    # 1. Carga de mensajes en tiempo real (Los más nuevos primero)
     try:
-        # Traemos los últimos 50 mensajes incluyendo el apodo del usuario
+        # Traemos los últimos 50 mensajes. Al NO hacer .reverse(), los más nuevos se quedan ARRIBA.
         res_chat = supabase.table("Chat").select("*, Usuarios(Apodo)").order("Fecha_hora", desc=True).limit(50).execute()
         mensajes_chat = res_chat.data
-        mensajes_chat.reverse()  # Los más nuevos abajo
     except Exception as e:
         mensajes_chat = []
 
-    # 2. Apertura del contenedor principal con ID para el Scroll
-    # Usamos flex-direction: column y gap para separar las burbujas
-    chat_html = """
-    <div id='chat-container' style='background-color: #111A24; border: 1px solid #1E2A38; border-radius: 16px; padding: 15px; height: 380px; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; margin-bottom: 20px;'>
-    """
-    
-    if not mensajes_chat:
-        chat_html += "<p style='color: #8899A6; text-align: center; font-style: italic; margin: auto;'>¡Nadie ha hablado aún! Rompe el hielo...</p>"
-    else:
-        for msg in mensajes_chat:
-            autor = msg.get("Usuarios", {}).get("Apodo", "Anon") if msg.get("Usuarios") else "Anon"
-            texto = msg.get("Mensaje", "")
-            
-            # Formateo de hora (Ajuste +2h para España)
-            try:
-                dt_msg = datetime.fromisoformat(msg["Fecha_hora"].replace("Z", "+00:00")) + timedelta(hours=2)
-                hora_str = dt_msg.strftime("%H:%M")
-            except:
-                hora_str = ""
-            
-            # Lógica de Admin (Corona dorada)
-            nombre_visual = autor
-            if autor == ADMIN_NOMBRE:
-                nombre_visual = f"👑 {autor} (Admin)"
-            
-            # Construcción de burbujas (Sin saltos de línea para evitar bugs de Streamlit)
-            if autor == st.session_state["Apodo"]:
-                # Burbuja Derecha - TÚ (Verde)
-                chat_html += f"<div style='align-self: flex-end; background: linear-gradient(135deg, #00C853, #00E676); color: #060D13; padding: 8px 14px; border-radius: 16px 16px 2px 16px; max-width: 85%; box-shadow: 0 2px 4px rgba(0,0,0,0.2);'><div style='font-size: 0.72em; font-weight: 900; opacity: 0.8; margin-bottom: 2px;'>Tú ({hora_str})</div><div style='font-size: 0.95em; font-weight: 500; line-height: 1.3;'>{texto}</div></div>"
-            else:
-                # Burbuja Izquierda - OTROS (Gris azulado)
-                chat_html += f"<div style='align-self: flex-start; background-color: #1A2433; color: #E1E8ED; padding: 8px 14px; border-radius: 16px 16px 16px 2px; max-width: 85%; border: 1px solid #2C3E50;'><div style='font-size: 0.72em; font-weight: 800; color: #00E676; margin-bottom: 2px;'>{nombre_visual} <span style='color: #8899A6; font-weight: 400;'>({hora_str})</span></div><div style='font-size: 0.95em; line-height: 1.3;'>{texto}</div></div>"
-                
-    # 3. Cerramos el div contenedor e inyectamos el JS de Auto-Scroll
-    chat_html += "</div>"
-    
-    chat_html += """
-    <script>
-        function forzarScroll() {
-            var chatBox = document.getElementById('chat-container');
-            if (chatBox) {
-                chatBox.scrollTop = chatBox.scrollHeight;
-            }
-        }
-        // Intentos en cascada para asegurar el scroll tras la carga del DOM
-        setTimeout(forzarScroll, 50);
-        setTimeout(forzarScroll, 200);
-        setTimeout(forzarScroll, 500);
-
-        // Observador: si se añaden nuevos mensajes, baja automáticamente
-        var targetNode = document.getElementById('chat-container');
-        if (targetNode) {
-            var observer = new MutationObserver(forzarScroll);
-            observer.observe(targetNode, { childList: true });
-        }
-    </script>
-    """
-    
-    # 4. Renderizamos todo el bloque HTML
-    st.markdown(chat_html, unsafe_allow_html=True)
-    
-    # 5. Formulario de envío minimalista
+    # 2. Formulario de envío posicionado ARRIBA para máxima comodidad
     with st.form("form_chat_global", clear_on_submit=True, border=False):
         c_txt, c_btn = st.columns([4, 1])
         with c_txt:
@@ -679,6 +617,42 @@ with tabs[4]:
                 st.rerun()
             except Exception as e:
                 st.error("Error al enviar mensaje.")
+
+    st.write("") # Espaciador
+
+    # 3. Contenedor visual de mensajes (Los nuevos aparecen arriba instantáneamente)
+    chat_html = """
+    <div style='background-color: #111A24; border: 1px solid #1E2A38; border-radius: 16px; padding: 15px; height: 380px; overflow-y: auto; display: flex; flex-direction: column; gap: 12px;'>
+    """
+    
+    if not mensajes_chat:
+        chat_html += "<p style='color: #8899A6; text-align: center; font-style: italic; margin: auto;'>¡Nadie ha hablado aún! Rompe el hielo de arriba...</p>"
+    else:
+        for msg in mensajes_chat:
+            autor = msg.get("Usuarios", {}).get("Apodo", "Anon") if msg.get("Usuarios") else "Anon"
+            texto = msg.get("Mensaje", "")
+            
+            try:
+                dt_msg = datetime.fromisoformat(msg["Fecha_hora"].replace("Z", "+00:00")) + timedelta(hours=2)
+                hora_str = dt_msg.strftime("%H:%M")
+            except:
+                hora_str = ""
+            
+            # Lógica de Admin (Corona dorada)
+            nombre_visual = autor
+            if autor == ADMIN_NOMBRE:
+                nombre_visual = f"👑 {autor} (Admin)"
+            
+            # Construcción de burbujas en orden invertido fluido
+            if autor == st.session_state["Apodo"]:
+                chat_html += f"<div style='align-self: flex-end; background: linear-gradient(135deg, #00C853, #00E676); color: #060D13; padding: 8px 14px; border-radius: 16px 16px 2px 16px; max-width: 85%; box-shadow: 0 2px 4px rgba(0,0,0,0.2);'><div style='font-size: 0.72em; font-weight: 900; opacity: 0.8; margin-bottom: 2px;'>Tú ({hora_str})</div><div style='font-size: 0.95em; font-weight: 500; line-height: 1.3;'>{texto}</div></div>"
+            else:
+                chat_html += f"<div style='align-self: flex-start; background-color: #1A2433; color: #E1E8ED; padding: 8px 14px; border-radius: 16px 16px 16px 2px; max-width: 85%; border: 1px solid #2C3E50;'><div style='font-size: 0.72em; font-weight: 800; color: #00E676; margin-bottom: 2px;'>{nombre_visual} <span style='color: #8899A6; font-weight: 400;'>({hora_str})</span></div><div style='font-size: 0.95em; line-height: 1.3;'>{texto}</div></div>"
+                
+    chat_html += "</div>"
+    
+    # Renderizamos el bloque HTML limpio de JS problemáticos
+    st.markdown(chat_html, unsafe_allow_html=True)
 # ================================
 # TAB 6: REGLAS
 # ================================
