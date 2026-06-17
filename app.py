@@ -592,41 +592,21 @@ with tabs[3]:
 with tabs[4]:
     st.markdown("<h3 style='text-align: center;'><span class='text-gradient'>💬 CHAT DE LA PORRA</span></h3>", unsafe_allow_html=True)
     
-    # 1. Carga de mensajes en tiempo real (Los más nuevos primero)
+    # 1. Carga de mensajes (Los más nuevos primero para combinarse con el column-reverse)
     try:
-        # Traemos los últimos 50 mensajes. Al NO hacer .reverse(), los más nuevos se quedan ARRIBA.
         res_chat = supabase.table("Chat").select("*, Usuarios(Apodo)").order("Fecha_hora", desc=True).limit(50).execute()
         mensajes_chat = res_chat.data
     except Exception as e:
         mensajes_chat = []
 
-    # 2. Formulario de envío posicionado ARRIBA para máxima comodidad
-    with st.form("form_chat_global", clear_on_submit=True, border=False):
-        c_txt, c_btn = st.columns([4, 1])
-        with c_txt:
-            nuevo_msg = st.text_input("Escribe tu mensaje...", placeholder="¿Quién gana hoy? 👀", label_visibility="collapsed").strip()
-        with c_btn:
-            enviar = st.form_submit_button("ENVIAR", use_container_width=True)
-            
-        if enviar and nuevo_msg:
-            try:
-                supabase.table("Chat").insert({
-                    "Id_usuario": st.session_state["Id_usuario"],
-                    "Mensaje": nuevo_msg
-                }).execute()
-                st.rerun()
-            except Exception as e:
-                st.error("Error al enviar mensaje.")
-
-    st.write("") # Espaciador
-
-    # 3. Contenedor visual de mensajes (Los nuevos aparecen arriba instantáneamente)
+    # 2. Contenedor con CSS de inversión nativa (column-reverse)
+    # NOTA: Al usar column-reverse, el scroll se posiciona abajo de forma automática y nativa.
     chat_html = """
-    <div style='background-color: #111A24; border: 1px solid #1E2A38; border-radius: 16px; padding: 15px; height: 380px; overflow-y: auto; display: flex; flex-direction: column; gap: 12px;'>
+    <div style='background-color: #111A24; border: 1px solid #1E2A38; border-radius: 16px; padding: 15px; height: 380px; overflow-y: auto; display: flex; flex-direction: column-reverse; gap: 12px; margin-bottom: 20px;'>
     """
     
     if not mensajes_chat:
-        chat_html += "<p style='color: #8899A6; text-align: center; font-style: italic; margin: auto;'>¡Nadie ha hablado aún! Rompe el hielo de arriba...</p>"
+        chat_html += "<p style='color: #8899A6; text-align: center; font-style: italic; margin: auto;'>¡Nadie ha hablado aún! Rompe el hielo abajo...</p>"
     else:
         for msg in mensajes_chat:
             autor = msg.get("Usuarios", {}).get("Apodo", "Anon") if msg.get("Usuarios") else "Anon"
@@ -643,16 +623,32 @@ with tabs[4]:
             if autor == ADMIN_NOMBRE:
                 nombre_visual = f"👑 {autor} (Admin)"
             
-            # Construcción de burbujas en orden invertido fluido
+            # Burbujas
             if autor == st.session_state["Apodo"]:
                 chat_html += f"<div style='align-self: flex-end; background: linear-gradient(135deg, #00C853, #00E676); color: #060D13; padding: 8px 14px; border-radius: 16px 16px 2px 16px; max-width: 85%; box-shadow: 0 2px 4px rgba(0,0,0,0.2);'><div style='font-size: 0.72em; font-weight: 900; opacity: 0.8; margin-bottom: 2px;'>Tú ({hora_str})</div><div style='font-size: 0.95em; font-weight: 500; line-height: 1.3;'>{texto}</div></div>"
             else:
                 chat_html += f"<div style='align-self: flex-start; background-color: #1A2433; color: #E1E8ED; padding: 8px 14px; border-radius: 16px 16px 16px 2px; max-width: 85%; border: 1px solid #2C3E50;'><div style='font-size: 0.72em; font-weight: 800; color: #00E676; margin-bottom: 2px;'>{nombre_visual} <span style='color: #8899A6; font-weight: 400;'>({hora_str})</span></div><div style='font-size: 0.95em; line-height: 1.3;'>{texto}</div></div>"
                 
     chat_html += "</div>"
-    
-    # Renderizamos el bloque HTML limpio de JS problemáticos
     st.markdown(chat_html, unsafe_allow_html=True)
+    
+    # 3. Formulario de envío de texto devuelto ABAJO del todo
+    with st.form("form_chat_global", clear_on_submit=True, border=False):
+        c_txt, c_btn = st.columns([4, 1])
+        with c_txt:
+            nuevo_msg = st.text_input("Escribe tu mensaje...", placeholder="Escribe un mensaje aquí...", label_visibility="collapsed").strip()
+        with c_btn:
+            enviar = st.form_submit_button("ENVIAR", use_container_width=True)
+            
+        if enviar and nuevo_msg:
+            try:
+                supabase.table("Chat").insert({
+                    "Id_usuario": st.session_state["Id_usuario"],
+                    "Mensaje": nuevo_msg
+                }).execute()
+                st.rerun()
+            except Exception as e:
+                st.error("Error al enviar mensaje.")
 # ================================
 # TAB 6: REGLAS
 # ================================
