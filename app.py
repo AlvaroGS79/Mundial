@@ -346,7 +346,7 @@ if st.session_state["view_partido"]:
 orden_fases = ["Fase de Grupos", "Dieciseisavos", "Octavos", "Cuartos", "Semifinales", "3º y 4º Puesto", "Final"]
 fases_existentes = sorted(list(set(p["Fase_Visual"] for p in partidos_raw)), key=lambda x: orden_fases.index(x) if x in orden_fases else 99)
 
-# TRUCO DE JAVASCRIPT: Fuerza al navegador a subir arriba del todo al interactuar
+# Forzar scroll arriba al interactuar con las pestañas
 st.markdown("""
     <script>
         var body = window.parent.document.querySelector(".main");
@@ -354,7 +354,7 @@ st.markdown("""
     </script>
 """, unsafe_allow_html=True)
 
-# NUEVO MENÚ DE PESTAÑAS (Añadimos Ver Porras y Estadísticas)
+# Menú unificado de pestañas con tus nuevas incorporaciones
 tabs_labels = ["📅 Partidos", "🏆 Ranking", "🔍 Ver Porras", "📊 Estadísticas", "📜 Reglas"]
 if es_admin: tabs_labels.append("🛠️ Admin")
 tabs = st.tabs(tabs_labels)
@@ -480,7 +480,7 @@ with tabs[0]:
                                 </div>
                                 """, unsafe_allow_html=True)
                                 if fecha_p > hora_actual_espana:
-                                    st.markdown("<p style='font-size:0.7em; color:#8899A6; text-align:center; font-style:italic;'>Los pronósticos de todos tus amigos se revelarán en la pestaña '🔍 Ver Porras' al inicio del partido.</p>", unsafe_allow_html=True)
+                                    st.markdown("<p style='font-size:0.7em; color:#8899A6; text-align:center; font-style:italic;'>Los pronósticos completos de tus amigos se revelarán en la pestaña '🔍 Ver Porras' al empezar el partido.</p>", unsafe_allow_html=True)
 
 # ================================
 # TAB 2: RANKING DINÁMICO POR FASES Y RACHAS
@@ -570,7 +570,7 @@ with tabs[1]:
                     st.info(f"Aún no hay puntos repartidos en: {rk_name}")
 
 # ================================
-# NUEVA TAB 3: OJO DE HALCÓN (VER PORRAS COMPLETA)
+# TAB 3: OJO DE HALCÓN (VER PORRAS EN TIEMPO REAL)
 # ================================
 with tabs[2]:
     st.markdown("<h3 style='text-align: center;'><span class='text-gradient'>🔍 OJO DE HALCÓN</span></h3>", unsafe_allow_html=True)
@@ -578,20 +578,17 @@ with tabs[2]:
     st.divider()
 
     opciones_partidos = []
-    partidos_visibles = []
     
     for p in partidos_raw:
         f_p = datetime.fromisoformat(p['Fecha_hora']).replace(tzinfo=timezone.utc)
-        # Se puede ver si ya empezó o terminó
         if f_p <= hora_actual_espana or p.get('Resultado_real'):
-            partidos_visibles.append(p)
             label = f"{p['Equipo_local']} vs {p['Equipo_visitante']} ({p['Fase']})"
-            if p.get('Resultado_real'): label += f" [Finalizado {p['Resultado_real']}]"
+            if p.get('Resultado_real'): label += f" [Final: {p['Resultado_real']}]"
             else: label += " [EN JUEGO / CERRADO]"
             opciones_partidos.append((p['Id'], label))
             
     if not opciones_partidos:
-        st.info("Aún no ha comenzado ningún partido del torneo. Las porras se abrirán aquí en cuanto pite el árbitro del primer partido.")
+        st.info("Aún no ha comenzado ningún partido del torneo. Las porras se abrirán aquí automáticamente en cuanto pite el árbitro.")
     else:
         id_sel = st.selectbox("Selecciona un partido disputado o en curso:", opciones_partidos, format_func=lambda x: x[1])
         p_sel = next(x for x in partidos_raw if x['Id'] == id_sel[0])
@@ -636,18 +633,25 @@ with tabs[2]:
                 
             st.dataframe(pd.DataFrame(data_list), use_container_width=True, hide_index=True)
         else:
-            st.info("Nadie envió pronósticos para este partido.")
+            st.info("Nadie envió pronósticos para este encuentro.")
 
 # ================================
-# NUEVA TAB 4: ESTADÍSTICAS DEL GRUPO (REYES DEL MERCADO)
+# TAB 4: ESTADÍSTICAS DEL GRUPO (RECUENTO TOTAL DE ACIERTOS)
 # ================================
 with tabs[3]:
-    st.markdown("<h3 style='text-align: center;'><span class='text-gradient'>📊 LÍDERES DE MERCADO</span></h3>", unsafe_allow_html=True)
-    st.write("Analítica pura del torneo. Descubre quién es el que más domina cada uno de los apartados.")
+    st.markdown("<h3 style='text-align: center;'><span class='text-gradient'>📊 TOTAL DE ACIERTOS</span></h3>", unsafe_allow_html=True)
+    st.write("Historial acumulado de aciertos. Aquí puedes ver cuántas veces ha clavado cada jugador los distintos apartados del juego.")
     st.divider()
     
-    # Calcular contadores de aciertos avanzados por usuario
-    stats_usuarios = {u['Id']: {"Jugador": u['Apodo'], "Plenos": 0, "Corners": 0, "Tarjetas": 0, "Faltas": 0} for u in usuarios_ranking}
+    # Mapeo inicializando los contadores a 0 para todos los jugadores válidos
+    stats_usuarios = {u['Id']: {
+        "Jugador (Apodo)": u['Apodo'] if u['Apodo'] else "Sin Apodo", 
+        "🎯 Plenos Exactos": 0, 
+        "✅ Signos Acertados (1X2)": 0,
+        "🚩 Córners": 0, 
+        "🟨 Tarjetas": 0, 
+        "🛑 Faltas": 0
+    } for u in usuarios_ranking}
     
     for p in partidos_db:
         res_real = p.get('Resultado_real')
@@ -656,44 +660,39 @@ with tabs[3]:
         f_real = p.get('Faltas_real')
         
         if res_real and '-' in str(res_real):
+            out_real = get_outcome(res_real)
             for v in todas_porras:
                 uid = v['Id_usuario']
                 if uid in stats_usuarios:
-                    if v['Prediccion'] == res_real:
-                        stats_usuarios[uid]["Plenos"] += 1
+                    pred = str(v['Prediccion'])
+                    if '-' in pred:
+                        if pred == res_real:
+                            stats_usuarios[uid]["🎯 Plenos Exactos"] += 1
+                        elif get_outcome(pred) == out_real and out_real is not None:
+                            stats_usuarios[uid]["✅ Signos Acertados (1X2)"] += 1
+                            
                     if c_real is not None and v.get('Pred_Corners'):
                         if (c_real > LINEA_CORNERS and v['Pred_Corners'] == 'Más') or (c_real < LINEA_CORNERS and v['Pred_Corners'] == 'Menos'):
-                            stats_usuarios[uid]["Corners"] += 1
+                            stats_usuarios[uid]["🚩 Córners"] += 1
+                            
                     if t_real is not None and v.get('Pred_Tarjetas'):
                         if (t_real > LINEA_TARJETAS and v['Pred_Tarjetas'] == 'Más') or (t_real < LINEA_TARJETAS and v['Pred_Tarjetas'] == 'Menos'):
-                            stats_usuarios[uid]["Tarjetas"] += 1
+                            stats_usuarios[uid]["🟨 Tarjetas"] += 1
+                            
                     if f_real is not None and v.get('Pred_Faltas'):
                         if (f_real > LINEA_FALTAS and v['Pred_Faltas'] == 'Más') or (f_real < LINEA_FALTAS and v['Pred_Faltas'] == 'Menos'):
-                            stats_usuarios[uid]["Faltas"] += 1
+                            stats_usuarios[uid]["🛑 Faltas"] += 1
 
-    df_stats = pd.DataFrame(stats_usuarios.values())
-    
-    if df_stats.empty or len(partidos_con_resultado) == 0:
-        st.info("Las estadísticas globales se calcularán automáticamente cuando el administrador guarde el resultado del primer partido.")
+    if not stats_usuarios or len(partidos_con_resultado) == 0:
+        st.info("Las estadísticas completas se computarán automáticamente cuando se registre el marcador del primer partido.")
     else:
-        c_st1, c_st2 = st.columns(2)
-        with c_st1:
-            st.markdown("🎯 **El Gurú de los Plenos** *(Resultados Exactos)*")
-            df_p = df_stats.sort_values(by="Plenos", ascending=False)[["Jugador", "Plenos"]]
-            st.dataframe(df_p, use_container_width=True, hide_index=True)
-            
-            st.markdown("🚩 **El Rey de los Córners** *(Aciertos)*")
-            df_c = df_stats.sort_values(by="Corners", ascending=False)[["Jugador", "Corners"]]
-            st.dataframe(df_c, use_container_width=True, hide_index=True)
-            
-        with c_st2:
-            st.markdown("🟨 **El Leñero del Grupo** *(Aciertos en Tarjetas)*")
-            df_t = df_stats.sort_values(by="Tarjetas", ascending=False)[["Jugador", "Tarjetas"]]
-            st.dataframe(df_t, use_container_width=True, hide_index=True)
-            
-            st.markdown("🛑 **Especialista en Faltas** *(Aciertos)*")
-            df_f = df_stats.sort_values(by="Faltas", ascending=False)[["Jugador", "Faltas"]]
-            st.dataframe(df_f, use_container_width=True, hide_index=True)
+        df_stats = pd.DataFrame(stats_usuarios.values())
+        
+        # Ordenamos la tabla de forma predeterminada por quienes lleven más Plenos Exactos conseguidos
+        df_stats = df_stats.sort_values(by=["🎯 Plenos Exactos", "✅ Signos Acertados (1X2)"], ascending=False)
+        
+        # Se expone una única tabla global, sumamente cómoda y limpia
+        st.dataframe(df_stats, use_container_width=True, hide_index=True)
 
 # ================================
 # TAB 5: REGLAS
