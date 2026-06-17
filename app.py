@@ -347,12 +347,13 @@ with tabs[0]:
                                     st.markdown("<p style='font-size:0.7em; color:#8899A6; text-align:center; font-style:italic;'>Los pronósticos completos de tus amigos se revelarán en la pestaña '🔍 Ver Porras' al empezar el partido.</p>", unsafe_allow_html=True)
 
 # ================================
-# TAB 2: RANKING TRANSFORMA EN GRÁFICO DE BARRAS
+# TAB 2: RANKING DINÁMICO
 # ================================
 with tabs[1]:
     if not usuarios_ranking: 
-        st.info("Sin usuarios.")
+        st.info("Sin usuarios para mostrar en el ranking.")
     else:
+        # CÁLCULO DE PUNTOS (100% fiable)
         pts_data = {u['Id']: {"Id": u['Id'], "Jugador (Apodo)": u['Apodo'] if u['Apodo'] else "Sin Apodo", "Global": 0, "Racha_Pts": 0} for u in usuarios_ranking}
         for f in fases_existentes:
             for uid in pts_data: pts_data[uid][f] = 0
@@ -393,12 +394,12 @@ with tabs[1]:
                             pts_data[v['Id_usuario']]["Global"] += pts_partido
                             if fase_val in pts_data[v['Id_usuario']]:
                                 pts_data[v['Id_usuario']][fase_val] += pts_partido
-                            
                             if p['Id'] in ultimos_3_partidos_ids:
                                 pts_data[v['Id_usuario']]["Racha_Pts"] += pts_partido
 
         max_racha = max([u["Racha_Pts"] for u in pts_data.values()]) if pts_data else 0
 
+        # Sub-pestañas Filtro de Clasificación
         ranking_tabs_names = ["Global"] + fases_existentes
         rk_tabs = st.tabs(ranking_tabs_names)
         
@@ -408,21 +409,19 @@ with tabs[1]:
                 ranking_filtrado = [u for u in ranking_ordenado if u[rk_name] > 0]
                 
                 if ranking_filtrado:
-                    st.markdown(f"<h3 style='text-align: center; margin-bottom: 25px;'><span class='text-gradient'>🏆 LÍDERES: {rk_name.upper()}</span></h3>", unsafe_allow_html=True)
+                    st.markdown(f"<h3 style='text-align: center; margin-bottom: 20px;'><span class='text-gradient'>🏆 CLASIFICACIÓN: {rk_name.upper()}</span></h3>", unsafe_allow_html=True)
+                    
+                    # 🥇 PODIO VISUAL
                     c1, c2, c3 = st.columns(3)
                     with c1: st.markdown(f"<div class='podium-gold'>🥇<br>{ranking_filtrado[0]['Jugador (Apodo)']}<br>{ranking_filtrado[0][rk_name]} pts</div>", unsafe_allow_html=True)
                     if len(ranking_filtrado) > 1:
                         with c2: st.markdown(f"<div class='podium-silver'>🥈<br>{ranking_filtrado[1]['Jugador (Apodo)']}<br>{ranking_filtrado[1][rk_name]} pts</div>", unsafe_allow_html=True)
                     if len(ranking_filtrado) > 2:
                         with c3: st.markdown(f"<div class='podium-bronze'>🥉<br>{ranking_filtrado[2]['Jugador (Apodo)']}<br>{ranking_filtrado[2][rk_name]} pts</div>", unsafe_allow_html=True)
-                    st.divider()
                     
-                    # 📊 GRÁFICO DE BARRAS INTERACTIVO
-                    st.markdown("##### 📈 Gráfico Comparativo de Puntos")
-                    df_chart = pd.DataFrame(ranking_ordenado).sort_values(by=rk_name, ascending=True)
-                    st.bar_chart(data=df_chart, x="Jugador (Apodo)", y=rk_name, color="#00E676", use_container_width=True)
+                    st.write("---")
                     
-                    # 📋 TABLA DETALLADA DE RESPALDO
+                    # 📋 TABLA DETALLADA DIRECTA (SIN GRÁFICO DE BARRAS)
                     final_rows = []
                     for u in ranking_ordenado:
                         nombre_visual = u['Jugador (Apodo)']
@@ -432,12 +431,12 @@ with tabs[1]:
                         final_rows.append({
                             "Jugador (Apodo)": nombre_visual,
                             "Puntos": u[rk_name],
-                            "Racha (Últ. 3 partidos)": f"{u['Racha_Pts']} pts"
+                            "Racha (Últ. 3 part.)": f"{u['Racha_Pts']} pts"
                         })
-                    
                     st.dataframe(pd.DataFrame(final_rows), use_container_width=True, hide_index=True)
                 else:
-                    st.info(f"Aún no hay puntos repartidos en: {rk_name}")
+                    st.info(f"Aún no hay puntos registrados en la fase: {rk_name}")
+
 
 # ================================
 # TAB 3: OJO DE HALCÓN (VER PORRAS EN TIEMPO REAL)
@@ -504,15 +503,15 @@ with tabs[2]:
         else:
             st.info("Nadie envió pronósticos para este encuentro.")
 
+
 # ================================
-# TAB 4: ESTADÍSTICAS DEL GRUPO (ESTÉTICA ORIGINAL RECOBRADA)
+# TAB 4: ESTADÍSTICAS DEL GRUPO (ESTÉTICA DE TABLAS SEPARADAS ORIGINAL)
 # ================================
 with tabs[3]:
     st.markdown("<h3 style='text-align: center;'><span class='text-gradient'>📊 LÍDERES DE MERCADO</span></h3>", unsafe_allow_html=True)
     st.write("Analítica pura del torneo. Descubre quién es el que más domina cada uno de los apartados.")
     st.divider()
     
-    # Calcular contadores de aciertos avanzados por usuario
     stats_usuarios = {u['Id']: {
         "Jugador": u['Apodo'] if u['Apodo'] else "Sin Apodo", 
         "Plenos": 0, 
@@ -583,64 +582,55 @@ with tabs[3]:
             df_t = df_stats.sort_values(by="Tarjetas", ascending=False)[["Jugador", "Tarjetas"]]
             st.dataframe(df_t, use_container_width=True, hide_index=True)
 
-# ================================
-# TAB 5: CHAT GLOBAL DE LA COMUNIDAD
-# ================================
-with tabs[2]:
-    st.markdown("<h3 style='text-align: center;'><span class='text-gradient'>💬 CHAT DE LA PORRA</span></h3>", unsafe_allow_html=True)
-    
-    # Contenedor visual con scroll vertical fijo para simular una app de chat
-    chat_html = "<div style='background-color: #111A24; border: 1px solid #1E2A38; border-radius: 16px; padding: 15px; height: 350px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; margin-bottom: 20px;'>"
-    
-    if 'mensajes_chat' not in locals() or not mensajes_chat:
-        chat_html += "<p style='color: #8899A6; text-align: center; font-style: italic; margin: auto;'>¡Nadie ha hablado aún! Rompe el hielo...</p>"
-    else:
-        for msg in mensajes_chat:
-            autor = msg.get("Usuarios", {}).get("Apodo", "Anon")
-            texto = msg.get("Mensaje", "")
-            
-            try:
-                dt_msg = datetime.fromisoformat(msg["Fecha_hora"].replace("Z", "+00:00")) + timedelta(hours=2)
-                hora_str = dt_msg.strftime("%H:%M")
-            except:
-                hora_str = ""
-            
-            # Burbuja derecha (Verde) si el mensaje es del usuario actual
-            if autor == st.session_state["Apodo"]:
-                chat_html += f"""
-                <div style='align-self: flex-end; background: linear-gradient(135deg, #00C853, #00E676); color: #060D13; padding: 8px 14px; border-radius: 16px 16px 2px 16px; max-width: 80%; box-shadow: 0 2px 4px rgba(0,0,0,0.2);'>
-                    <div style='font-size: 0.75em; font-weight: 900; opacity: 0.8; margin-bottom: 2px;'>Tú ({hora_str})</div>
-                    <div style='font-size: 0.95em; font-weight: 500;'>{texto}</div>
-                </div>
-                """
-            # Burbuja izquierda (Gris) si es de otro usuario de la comunidad
-            else:
-                chat_html += f"""
-                <div style='align-self: flex-start; background-color: #1A2433; color: #E1E8ED; padding: 8px 14px; border-radius: 16px 16px 16px 2px; max-width: 80%; border: 1px solid #2C3E50;'>
-                    <div style='font-size: 0.75em; font-weight: 800; color: #00E676; margin-bottom: 2px;'>{autor} <span style='color: #8899A6; font-weight: 400;'>({hora_str})</span></div>
-                    <div style='font-size: 0.95em;'>{texto}</div>
-                </div>
-                """
-    chat_html += "</div>"
-    st.markdown(chat_html, unsafe_allow_html=True)
-    
-    # Formulario inline inferior para enviar mensajes
-    with st.form("form_enviar_chat", clear_on_submit=True, border=False):
-        c_txt, c_btn = st.columns([4, 1])
-        with c_txt:
-            nuevo_msg = st.text_input("Escribe tu mensaje...", placeholder="Ej: ¡Vaya robo de partido! 🤬", label_visibility="collapsed").strip()
-        with c_btn:
-            enviar = st.form_submit_button("ENVIAR")
-            
-        if enviar and nuevo_msg:
-            supabase.table("Chat").insert({
-                "Id_usuario": st.session_state["Id_usuario"],
-                "Mensaje": nuevo_msg
-            }).execute()
-            st.rerun()
 
 # ================================
-# TAB 6: REGLAS (Cambia índice por movimiento del chat)
+# TAB 5: CHAT DE GRUPO (ESTÉTERICA ORIGINAL VISUAL)
+# ================================
+with tabs[4]:
+    st.markdown("<h3 style='text-align: center;'><span class='text-gradient'>💬 CHAT DE LA PORRA</span></h3>", unsafe_allow_html=True)
+    st.write("Debate, pícate y comenta los resultados en directo con el resto de competidores de la porra.")
+    st.divider()
+
+    try:
+        # Traer los últimos 40 mensajes del chat ordenados por fecha
+        mensajes_db = supabase.table("Chat").select("*").order("Creado_en", desc=True).limit(40).execute().data
+        mensajes_db.reverse() # Invertir para leer de antiguo a nuevo
+        
+        if not mensajes_db:
+            st.write("<i style='color:#8899A6;'>No hay mensajes todavía... ¡Rompe el hielo!</i>", unsafe_allow_html=True)
+        else:
+            for msg in mensajes_db:
+                user_msg = msg.get('Jugador', 'Anónimo')
+                texto = msg.get('Mensaje', '')
+                
+                # Renderizado limpio e independiente original
+                if user_msg == st.session_state["Apodo"]:
+                    st.markdown(f"**🟢 Tú:** {texto}")
+                else:
+                    st.markdown(f"**👤 {user_msg}:** {texto}")
+    except Exception as e:
+        st.error("Asegúrate de tener creada la tabla 'Chat' en Supabase.")
+
+    st.write("")
+    # Formulario estanco para enviar mensaje rápido
+    with st.form("form_chat", clear_on_submit=True):
+        c_txt, c_btn = st.columns([4, 1])
+        nuevo_msg = c_txt.text_input("Escribe un mensaje...", placeholder="¡Vaya robo de partido! 🤬", label_visibility="collapsed")
+        enviar_msg = c_btn.form_submit_button("Enviar", use_container_width=True)
+        
+        if enviar_msg and nuevo_msg.strip():
+            try:
+                supabase.table("Chat").insert({
+                    "Jugador": st.session_state["Apodo"],
+                    "Mensaje": nuevo_msg.strip()
+                }).execute()
+                st.rerun()
+            except:
+                st.error("Error al enviar el mensaje.")
+
+
+# ================================
+# TAB 6: REGLAS
 # ================================
 with tabs[5]:
     st.markdown(f"""
