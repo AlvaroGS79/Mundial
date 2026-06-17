@@ -593,18 +593,18 @@ with tabs[3]:
 with tabs[4]:
     st.markdown("<h3 style='text-align: center;'><span class='text-gradient'>💬 CHAT DE LA PORRA</span></h3>", unsafe_allow_html=True)
     
-    # 🔄 REMEDIO: Forzar la recarga en tiempo real de los mensajes justo antes de pintar
+    # Recarga en tiempo real de los mensajes
     try:
         res_chat = supabase.table("Chat").select("*, Usuarios(Apodo)").order("Fecha_hora", desc=True).limit(40).execute()
         mensajes_chat = res_chat.data
-        mensajes_chat.reverse()  # Orden cronológico descendiente hacia abajo
+        mensajes_chat.reverse()
     except Exception as e:
-        pass
+        mensajes_chat = []
 
-    # Contenedor visual con scroll vertical fijo para simular una app de chat
+    # Contenedor visual principal con scroll
     chat_html = "<div style='background-color: #111A24; border: 1px solid #1E2A38; border-radius: 16px; padding: 15px; height: 350px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; margin-bottom: 20px;'>"
     
-    if 'mensajes_chat' not in locals() or not mensajes_chat:
+    if not mensajes_chat:
         chat_html += "<p style='color: #8899A6; text-align: center; font-style: italic; margin: auto;'>¡Nadie ha hablado aún! Rompe el hielo...</p>"
     else:
         for msg in mensajes_chat:
@@ -617,7 +617,7 @@ with tabs[4]:
             except:
                 hora_str = ""
             
-            # Burbuja derecha (Verde) si el mensaje es del usuario actual
+            # Burbuja derecha (Verde) - Sin divs huérfanos
             if autor == st.session_state["Apodo"]:
                 chat_html += f"""
                 <div style='align-self: flex-end; background: linear-gradient(135deg, #00C853, #00E676); color: #060D13; padding: 8px 14px; border-radius: 16px 16px 2px 16px; max-width: 80%; box-shadow: 0 2px 4px rgba(0,0,0,0.2);'>
@@ -625,7 +625,7 @@ with tabs[4]:
                     <div style='font-size: 0.95em; font-weight: 500;'>{texto}</div>
                 </div>
                 """
-            # Burbuja izquierda (Gris) si es de otro usuario de la comunidad
+            # Burbuja izquierda (Gris) - Limpia y corregida
             else:
                 chat_html += f"""
                 <div style='align-self: flex-start; background-color: #1A2433; color: #E1E8ED; padding: 8px 14px; border-radius: 16px 16px 16px 2px; max-width: 80%; border: 1px solid #2C3E50;'>
@@ -633,10 +633,12 @@ with tabs[4]:
                     <div style='font-size: 0.95em;'>{texto}</div>
                 </div>
                 """
+                
+    # Se cierra el contenedor general UNA SOLA VEZ al finalizar el bucle
     chat_html += "</div>"
     st.markdown(chat_html, unsafe_allow_html=True)
     
-    # Formulario inline inferior para enviar mensajes
+    # Formulario de envío
     with st.form("form_enviar_chat", clear_on_submit=True, border=False):
         c_txt, c_btn = st.columns([4, 1])
         with c_txt:
