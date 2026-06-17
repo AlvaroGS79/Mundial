@@ -498,20 +498,21 @@ with tabs[2]:
             st.info("Nadie envió pronósticos para este encuentro.")
 
 # ================================
-# TAB 4: ESTADÍSTICAS DEL GRUPO (RECUENTO POR TABLAS DE CATEGORÍA)
+# TAB 4: ESTADÍSTICAS DEL GRUPO (REYES DEL MERCADO)
 # ================================
 with tabs[3]:
-    st.markdown("<h3 style='text-align: center;'><span class='text-gradient'>📊 TOTAL DE ACIERTOS</span></h3>", unsafe_allow_html=True)
-    st.write("Clasificación del grupo según el número total de aciertos conseguidos en cada mercado.")
+    st.markdown("<h3 style='text-align: center;'><span class='text-gradient'>📊 LÍDERES DE MERCADO</span></h3>", unsafe_allow_html=True)
+    st.write("Analítica pura del torneo. Descubre quién es el que más domina cada uno de los apartados.")
     st.divider()
     
+    # Calcular contadores de aciertos avanzados por usuario
     stats_usuarios = {u['Id']: {
-        "Jugador (Apodo)": u['Apodo'] if u['Apodo'] else "Sin Apodo", 
-        "🎯 Plenos Exactos": 0, 
-        "✅ Signos Acertados (1X2)": 0,
-        "🚩 Córners": 0, 
-        "🟨 Tarjetas": 0, 
-        "🛑 Faltas": 0
+        "Jugador": u['Apodo'] if u['Apodo'] else "Sin Apodo", 
+        "Plenos": 0, 
+        "Signos": 0,
+        "Corners": 0, 
+        "Tarjetas": 0, 
+        "Faltas": 0
     } for u in usuarios_ranking}
     
     partidos_con_resultado = [p for p in partidos_db if p.get('Resultado_real') and '-' in str(p['Resultado_real'])]
@@ -524,59 +525,58 @@ with tabs[3]:
         out_real = get_outcome(res_real)
         
         for v in todas_porras:
+            # Filtro estricto que soluciona el bug anterior: solo procesa si pertenece a este partido
             if v['Id_partido'] == p['Id']:
                 uid = v['Id_usuario']
                 if uid in stats_usuarios:
                     pred = str(v['Prediccion'])
                     if '-' in pred:
                         if pred == res_real:
-                            stats_usuarios[uid]["🎯 Plenos Exactos"] += 1
+                            stats_usuarios[uid]["Plenos"] += 1
                         elif get_outcome(pred) == out_real and out_real is not None:
-                            stats_usuarios[uid]["✅ Signos Acertados (1X2)"] += 1
+                            stats_usuarios[uid]["Signos"] += 1
                             
                     if c_real is not None and v.get('Pred_Corners'):
                         if (c_real > LINEA_CORNERS and v['Pred_Corners'] == 'Más') or (c_real < LINEA_CORNERS and v['Pred_Corners'] == 'Menos'):
-                            stats_usuarios[uid]["🚩 Córners"] += 1
+                            stats_usuarios[uid]["Corners"] += 1
                             
                     if t_real is not None and v.get('Pred_Tarjetas'):
                         if (t_real > LINEA_TARJETAS and v['Pred_Tarjetas'] == 'Más') or (t_real < LINEA_TARJETAS and v['Pred_Tarjetas'] == 'Menos'):
-                            stats_usuarios[uid]["🟨 Tarjetas"] += 1
+                            stats_usuarios[uid]["Tarjetas"] += 1
                             
                     if f_real is not None and v.get('Pred_Faltas'):
                         if (f_real > LINEA_FALTAS and v['Pred_Faltas'] == 'Más') or (f_real < LINEA_FALTAS and v['Pred_Faltas'] == 'Menos'):
-                            stats_usuarios[uid]["🛑 Faltas"] += 1
+                            stats_usuarios[uid]["Faltas"] += 1
 
     if not stats_usuarios or len(partidos_con_resultado) == 0:
-        st.info("Las estadísticas completas se computarán automáticamente cuando se registre el marcador del primer partido.")
+        st.info("Las estadísticas globales se calcularán automáticamente cuando el administrador guarde el resultado del primer partido.")
     else:
-        df_base = pd.DataFrame(stats_usuarios.values())
-        sub_tabs_stats = st.tabs(["🎯 Plenos", "✅ Signos (1X2)", "🚩 Córners", "🟨 Tarjetas", "🛑 Faltas"])
+        df_stats = pd.DataFrame(stats_usuarios.values())
         
-        with sub_tabs_stats[0]:
-            st.markdown("##### Clasificación por Marcadores Exactos Clavados (20 pts)")
-            df_plenos = df_base[["Jugador (Apodo)", "🎯 Plenos Exactos"]].sort_values(by="🎯 Plenos Exactos", ascending=False)
-            st.dataframe(df_plenos, use_container_width=True, hide_index=True)
+        # Distribución estética original usando 2 columnas paralelas
+        c_st1, c_st2 = st.columns(2)
+        
+        with c_st1:
+            st.markdown("🎯 **El Gurú de los Plenos** *(Resultados Exactos)*")
+            df_p = df_stats.sort_values(by="Plenos", ascending=False)[["Jugador", "Plenos"]]
+            st.dataframe(df_p, use_container_width=True, hide_index=True)
             
-        with sub_tabs_stats[1]:
-            st.markdown("##### Clasificación por Ganador/Empate acertados sin resultado exacto (5 pts)")
-            df_signos = df_base[["Jugador (Apodo)", "✅ Signos Acertados (1X2)"]].sort_values(by="✅ Signos Acertados (1X2)", ascending=False)
-            st.dataframe(df_signos, use_container_width=True, hide_index=True)
+            st.markdown("🚩 **El Rey de los Córners** *(Aciertos)*")
+            df_c = df_stats.sort_values(by="Corners", ascending=False)[["Jugador", "Corners"]]
+            st.dataframe(df_c, use_container_width=True, hide_index=True)
             
-        with sub_tabs_stats[2]:
-            st.markdown("##### Clasificación por Líneas de Córners acertadas (+2 pts)")
-            df_corners = df_base[["Jugador (Apodo)", "🚩 Córners"]].sort_values(by="🚩 Córners", ascending=False)
-            st.dataframe(df_corners, use_container_width=True, hide_index=True)
+            st.markdown("🛑 **Especialista en Faltas** *(Aciertos)*")
+            df_f = df_stats.sort_values(by="Faltas", ascending=False)[["Jugador", "Faltas"]]
+            st.dataframe(df_f, use_container_width=True, hide_index=True)
             
-        with sub_tabs_stats[3]:
-            st.markdown("##### Clasificación por Líneas de Tarjetas acertadas (+2 pts)")
-            df_tarjetas = df_base[["Jugador (Apodo)", "🟨 Tarjetas"]].sort_values(by="🟨 Tarjetas", ascending=False)
-            st.dataframe(df_tarjetas, use_container_width=True, hide_index=True)
-            
-        with sub_tabs_stats[4]:
-            st.markdown("##### Clasificación por Líneas de Faltas acertadas (+2 pts)")
-            df_faltas = df_base[["Jugador (Apodo)", "🛑 Faltas"]].sort_values(by="🛑 Faltas", ascending=False)
-            st.dataframe(df_faltas, use_container_width=True, hide_index=True)
+        with c_st2:
+            st.markdown("✅ **As de los Signos (1X2)** *(Ganador/Empate sin Pleno)*")
+            df_s = df_stats.sort_values(by="Signos", ascending=False)[["Jugador", "Signos"]]
+            st.dataframe(df_s, use_container_width=True, hide_index=True)
 
+            st.markdown("🟨 **El Leñero del Grupo** *(Aciertos en Tarjetas)*")
+            df_t = df_stats.sort_values(by="Tarjetas", ascending=False)[["Jugador", "Tarjetas"]]
+            st.dataframe(df_t, use_container_width=True, hide_index=True)
 # ================================
 # TAB 5: REGLAS
 # ================================
