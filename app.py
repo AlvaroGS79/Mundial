@@ -601,8 +601,8 @@ with tabs[4]:
     except Exception as e:
         mensajes_chat = []
 
-    # Contenedor visual principal con scroll
-    chat_html = "<div style='background-color: #111A24; border: 1px solid #1E2A38; border-radius: 16px; padding: 15px; height: 350px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; margin-bottom: 20px;'>"
+    # Inicializamos el contenedor sin saltos de línea extraños
+    chat_html = "<div style='background-color: #111A24; border: 1px solid #1E2A38; border-radius: 16px; padding: 15px; height: 350px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px;'>"
     
     if not mensajes_chat:
         chat_html += "<p style='color: #8899A6; text-align: center; font-style: italic; margin: auto;'>¡Nadie ha hablado aún! Rompe el hielo...</p>"
@@ -617,26 +617,17 @@ with tabs[4]:
             except:
                 hora_str = ""
             
-            # Burbuja derecha (Verde) - Sin divs huérfanos
+            # Compresiones en una sola línea para que Streamlit Markdown no se confunda
             if autor == st.session_state["Apodo"]:
-                chat_html += f"""
-                <div style='align-self: flex-end; background: linear-gradient(135deg, #00C853, #00E676); color: #060D13; padding: 8px 14px; border-radius: 16px 16px 2px 16px; max-width: 80%; box-shadow: 0 2px 4px rgba(0,0,0,0.2);'>
-                    <div style='font-size: 0.75em; font-weight: 900; opacity: 0.8; margin-bottom: 2px;'>Tú ({hora_str})</div>
-                    <div style='font-size: 0.95em; font-weight: 500;'>{texto}</div>
-                </div>
-                """
-            # Burbuja izquierda (Gris) - Limpia y corregida
+                chat_html += f"<div style='align-self: flex-end; background: linear-gradient(135deg, #00C853, #00E676); color: #060D13; padding: 8px 14px; border-radius: 16px 16px 2px 16px; max-width: 80%; box-shadow: 0 2px 4px rgba(0,0,0,0.2);'><div style='font-size: 0.75em; font-weight: 900; opacity: 0.8; margin-bottom: 2px;'>Tú ({hora_str})</div><div style='font-size: 0.95em; font-weight: 500;'>{texto}</div></div>"
             else:
-                chat_html += f"""
-                <div style='align-self: flex-start; background-color: #1A2433; color: #E1E8ED; padding: 8px 14px; border-radius: 16px 16px 16px 2px; max-width: 80%; border: 1px solid #2C3E50;'>
-                    <div style='font-size: 0.75em; font-weight: 800; color: #00E676; margin-bottom: 2px;'>{autor} <span style='color: #8899A6; font-weight: 400;'>({hora_str})</span></div>
-                    <div style='font-size: 0.95em;'>{texto}</div>
-                </div>
-                """
+                chat_html += f"<div style='align-self: flex-start; background-color: #1A2433; color: #E1E8ED; padding: 8px 14px; border-radius: 16px 16px 16px 2px; max-width: 80%; border: 1px solid #2C3E50;'><div style='font-size: 0.75em; font-weight: 800; color: #00E676; margin-bottom: 2px;'>{autor} <span style='color: #8899A6; font-weight: 400;'>({hora_str})</span></div><div style='font-size: 0.95em;'>{texto}</div></div>"
                 
-    # Se cierra el contenedor general UNA SOLA VEZ al finalizar el bucle
     chat_html += "</div>"
+    
+    # Renderizado usando contenedores limpios
     st.markdown(chat_html, unsafe_allow_html=True)
+    st.write("") # Espaciador
     
     # Formulario de envío
     with st.form("form_enviar_chat", clear_on_submit=True, border=False):
@@ -655,7 +646,6 @@ with tabs[4]:
                 st.rerun()
             except Exception as e:
                 st.error(f"Error al enviar: {e}")
-
 
 # ================================
 # TAB 6: REGLAS
