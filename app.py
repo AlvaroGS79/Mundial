@@ -354,8 +354,8 @@ st.markdown("""
     </script>
 """, unsafe_allow_html=True)
 
-# MODIFICACIÓN: Añadimos "💬 Chat" a las pestañas principales en la posición 3
-tabs_labels = ["📅 Partidos", "🏆 Ranking", "💬 Chat", "📜 Reglas"]
+# MODIFICACIÓN: Añadimos "⚔️ Duelos" a las pestañas principales en la posición 3
+tabs_labels = ["📅 Partidos", "🏆 Ranking", "⚔️ Duelos", "💬 Chat", "🏅 Logros", "📜 Reglas"]
 if es_admin: tabs_labels.append("🛠️ Admin")
 tabs = st.tabs(tabs_labels)
 
@@ -370,7 +370,6 @@ with tabs[0]:
         
         for i, fase_tab in enumerate(fases_existentes):
             with sub_tabs[i]:
-                # Volvemos a forzar el scroll hacia arriba al cambiar entre sub-pestañas de fases
                 st.markdown("<script>window.parent.document.querySelector('.main').scrollTop = 0;</script>", unsafe_allow_html=True)
                 
                 for p in [x for x in partidos_raw if x["Fase_Visual"] == fase_tab]:
@@ -535,12 +534,124 @@ with tabs[1]:
                     st.info(f"Aún no hay puntos repartidos en: {rk_name}")
 
 # ================================
-# TAB 3: CHAT GLOBAL DE LA COMUNIDAD
+# NUEVA TAB 3: ⚔️ COLOSAL ARENA DE DUELOS 1VS1 (VERSUS)
 # ================================
 with tabs[2]:
+    st.markdown("<h3 style='text-align: center;'><span class='text-gradient'>⚔️ ARENA DE DUELOS 1VS1</span></h3>", unsafe_allow_html=True)
+    st.write("En cada partido, te bates en duelo contra un rival. ¡Suma victorias y lidera la liga Versus!")
+    st.divider()
+
+    # Obtener lista limpia de usuarios reales (excluyendo admin) ordenados estables
+    lista_combatientes = sorted([u for u in todos_usuarios_raw if u["Apodo"] != ADMIN_NOMBRE], key=lambda x: x["Id"])
+    num_jugadores = len(lista_combatientes)
+
+    if num_jugadores < 2:
+        st.info("Se necesitan al menos 2 jugadores para iniciar la Arena de Duelos.")
+    else:
+        # Inicializar diccionario de victorias
+        combate_stats = {u["Id"]: {"Jugador": u["Apodo"], "Victorias": 0.0, "Derrotas": 0.0, "Empates": 0} for u in lista_combatientes}
+        mi_id = st.session_state["Id_usuario"]
+        mi_rival_actual_nombre = "Nadie (Emparejamiento impar)"
+        marcador_mi_duelo_actual = ""
+
+        # Recorrer todos los partidos ya jugados para calcular de forma retroactiva
+        partidos_terminados = [p for p in partidos_db if p.get('Resultado_real') and '-' in str(p['Resultado_real'])]
+
+        for p_index, part in enumerate(partidos_db):
+            res_r = part.get('Resultado_real')
+            if not res_r or '-' not in str(res_r):
+                # Si es el PRÓXIMO partido pendiente, calculamos quién es el contrincante actual del usuario logueado
+                if part.get('Id') == (partidos_raw[0]['Id'] if partidos_raw else None):
+                    # Rotación simple de emparejamientos basada en el ID del partido
+                    desplazamiento = part['Id'] % (num_jugadores if num_jugadores % 2 == 0 else num_jugadores - 1)
+                    if displacement == 0: displacement = 1
+                    
+                    for idx_c, comb in enumerate(lista_combatientes):
+                        if comb["Id"] == mi_id:
+                            idx_rival = (idx_c + desplazamiento) % num_jugadores
+                            mi_rival_actual_nombre = lista_combatientes[idx_rival]["Apodo"]
+                continue
+
+            out_r = get_outcome(res_r)
+            c_r = part.get('Corners_real')
+            t_r = part.get('Tarjetas_real')
+            f_r = part.get('Faltas_real')
+
+            # Calcular puntos exactos que hizo CADA usuario en este partido concreto
+            puntos_partido_usuarios = {}
+            for u in lista_combatientes:
+                pts_u = 0
+                v_u = next((v for v in todas_porras if v['Id_partido'] == part['Id'] and v['Id_usuario'] == u['Id']), None)
+                if v_u:
+                    pred = str(v_u['Prediccion'])
+                    if pred == res_r: pts_u += 20
+                    elif get_outcome(pred) == out_r and out_r is not None: pts_u += 5
+                    
+                    if c_r is not None and v_u.get('Pred_Corners'):
+                        if (c_r > LINEA_CORNERS and v_u['Pred_Corners'] == 'Más') or (c_r < LINEA_CORNERS and v_u['Pred_Corners'] == 'Menos'): pts_u += 2
+                    if t_r is not None and v_u.get('Pred_Tarjetas'):
+                        if (t_r > LINEA_TARJETAS and v_u['Pred_Tarjetas'] == 'Más') or (t_r < LINEA_TARJETAS and v_u['Pred_Tarjetas'] == 'Menos'): pts_u += 2
+                    if f_r is not None and v_u.get('Pred_Faltas'):
+                        if (f_r > LINEA_FALTAS and v_u['Pred_Faltas'] == 'Más') or (f_r < LINEA_FALTAS and v_u['Pred_Faltas'] == 'Menos'): pts_u += 2
+                puntos_partido_usuarios[u['Id']] = pts_u
+
+            # Emparejar dinámicamente usando una semilla fija por ID de partido
+            offset = part['Id'] % (num_jugadores if num_jugadores % 2 == 0 else num_jugadores - 1)
+            if offset == 0: offset = 1
+            
+            procesados = set()
+            for idx, jug in enumerate(lista_combatientes):
+                if jug["Id"] in procesados: continue
+                
+                # Encontrar su oponente asignado para este partido
+                opp_idx = (idx + offset) % num_jugadores
+                oponente = lista_combatientes[opp_idx]
+                
+                if oponente["Id"] in procesados or oponente["Id"] == jug["Id"]: continue
+                
+                procesados.add(jug["Id"])
+                procesados.add(oponente["Id"])
+
+                pts_j = puntos_partido_usuarios.get(jug["Id"], 0)
+                pts_o = puntos_partido_usuarios.get(oponente["Id"], 0)
+
+                # Registrar resultado del combate
+                if pts_j > pts_o:
+                    combate_stats[jug["Id"]]["Victorias"] += 1
+                    combate_stats[oponente["Id"]]["Derrotas"] += 1
+                elif pts_j < pts_o:
+                    combate_stats[oponente["Id"]]["Victorias"] += 1
+                    combate_stats[jug["Id"]]["Derrotas"] += 1
+                else:
+                    combate_stats[jug["Id"]]["Empates"] += 1
+                    combate_stats[oponente["Id"]]["Empates"] += 1
+                    combate_stats[jug["Id"]]["Victorias"] += 0.5
+                    combate_stats[oponente["Id"]]["Victorias"] += 0.5
+
+                # Si es el duelo del usuario logueado en un partido ya cerrado, lo guardamos para el historial visual
+                if (jug["Id"] == mi_id or oponente["Id"] == mi_id) and part['Id'] == (partidos_terminados[-1]['Id'] if partidos_terminados else None):
+                    marcador_mi_duelo_actual = f"Tu puntuación: {pts_j if jug['Id'] == mi_id else pts_o} pts vs Rival: {pts_o if jug['Id'] == mi_id else pts_j} pts"
+
+        # --- SECCIÓN VISUAL DEL DUELO ACTUAL ---
+        with st.container(border=True):
+            st.markdown(f"#### 🥊 TU PRÓXIMO DUELO")
+            st.markdown(f"Te enfrentarás cara a cara contra: **{mi_rival_actual_nombre}**")
+            if marcador_mi_duelo_actual:
+                st.caption(f"En el último partido disputado: {marcador_mi_duelo_actual}")
+
+        st.subheader("📊 Clasificación General de Duelos")
+        ranking_duelos = sorted(combate_stats.values(), key=lambda x: x["Victorias"], reverse=True)
+        
+        df_duelos = pd.DataFrame(ranking_duelos)
+        df_duelos.columns = ["⚔️ Jugador", "⭐ Victorias (Totales)", "❌ Derrotas", "🤝 Empates"]
+        st.dataframe(df_duelos, use_container_width=True, hide_index=True)
+
+# ================================
+# TAB 4: CHAT GLOBAL DE LA COMUNIDAD
+# ================================
+with tabs[3]:
     st.markdown("<h3 style='text-align: center;'><span class='text-gradient'>💬 CHAT DE LA PORRA</span></h3>", unsafe_allow_html=True)
     
-    # Contenedor visual con scroll vertical fijo para simular una app de chat
     chat_html = "<div style='background-color: #111A24; border: 1px solid #1E2A38; border-radius: 16px; padding: 15px; height: 350px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; margin-bottom: 20px;'>"
     
     if 'mensajes_chat' not in locals() or not mensajes_chat:
@@ -556,7 +667,6 @@ with tabs[2]:
             except:
                 hora_str = ""
             
-            # Burbuja derecha (Verde) si el mensaje es del usuario actual
             if autor == st.session_state["Apodo"]:
                 chat_html += f"""
                 <div style='align-self: flex-end; background: linear-gradient(135deg, #00C853, #00E676); color: #060D13; padding: 8px 14px; border-radius: 16px 16px 2px 16px; max-width: 80%; box-shadow: 0 2px 4px rgba(0,0,0,0.2);'>
@@ -564,7 +674,6 @@ with tabs[2]:
                     <div style='font-size: 0.95em; font-weight: 500;'>{texto}</div>
                 </div>
                 """
-            # Burbuja izquierda (Gris) si es de otro usuario de la comunidad
             else:
                 chat_html += f"""
                 <div style='align-self: flex-start; background-color: #1A2433; color: #E1E8ED; padding: 8px 14px; border-radius: 16px 16px 16px 2px; max-width: 80%; border: 1px solid #2C3E50;'>
@@ -575,7 +684,6 @@ with tabs[2]:
     chat_html += "</div>"
     st.markdown(chat_html, unsafe_allow_html=True)
     
-    # Formulario inline inferior para enviar mensajes
     with st.form("form_enviar_chat", clear_on_submit=True, border=False):
         c_txt, c_btn = st.columns([4, 1])
         with c_txt:
@@ -591,9 +699,88 @@ with tabs[2]:
             st.rerun()
 
 # ================================
-# TAB 4: REGLAS
+# TAB 5: 🏅 PANEL RETROACTIVO DE LOGROS
 # ================================
-with tabs[3]:
+with tabs[4]:
+    st.markdown("<h3 style='text-align: center;'><span class='text-gradient'>🏅 TU SALA DE TROFEOS</span></h3>", unsafe_allow_html=True)
+    st.write("Demuestra tu nivel completando misiones secretas a lo largo de los partidos.")
+    st.divider()
+
+    uid_actual = st.session_state["Id_usuario"]
+    datos_actuales = next((u for u in todos_usuarios_raw if u["Id"] == uid_actual), {"Estado": "Pendiente"})
+    votos_filtrados_mi_usuario = [v for v in todas_porras if v['Id_usuario'] == uid_actual]
+    
+    plenos_exactos = 0
+    partidos_con_puntos = 0
+    mercados_extra_acertados = 0
+    
+    for v in votos_filtrados_mi_usuario:
+        partido_asoc = next((p for p in partidos_db if p['Id'] == v['Id_partido']), None)
+        if partido_asoc and partido_asoc.get('Resultado_real'):
+            res_r = partido_asoc['Resultado_real']
+            out_r = get_outcome(res_r)
+            pred = str(v['Prediccion'])
+            
+            pts_este_p = 0
+            if pred == res_r:
+                plenos_exactos += 1
+                pts_este_p += 20
+            elif get_outcome(pred) == out_r and out_r is not None:
+                pts_este_p += 5
+                
+            c_r = partido_asoc.get('Corners_real')
+            t_r = partido_asoc.get('Tarjetas_real')
+            f_r = partido_asoc.get('Faltas_real')
+            
+            if c_r is not None and v.get('Pred_Corners'):
+                if (c_r > LINEA_CORNERS and v['Pred_Corners'] == 'Más') or (c_r < LINEA_CORNERS and v['Pred_Corners'] == 'Menos'):
+                    mercados_extra_acertados += 1
+                    pts_este_p += 2
+            if t_r is not None and v.get('Pred_Tarjetas'):
+                if (t_r > LINEA_TARJETAS and v['Pred_Tarjetas'] == 'Más') or (t_r < LINEA_TARJETAS and v['Pred_Tarjetas'] == 'Menos'):
+                    mercados_extra_acertados += 1
+                    pts_este_p += 2
+            if f_r is not None and v.get('Pred_Faltas'):
+                if (f_r > LINEA_FALTAS and v['Pred_Faltas'] == 'Más') or (f_r < LINEA_FALTAS and v['Pred_Faltas'] == 'Menos'):
+                    mercados_extra_acertados += 1
+                    pts_este_p += 2
+                    
+            if pts_este_p > 0:
+                partidos_con_puntos += 1
+
+    racha_mi_usuario = pts_data.get(uid_actual, {}).get("Racha_Pts", 0)
+    max_racha_global = max([u["Racha_Pts"] for u in pts_data.values() if u["Jugador (Apodo)"] != ADMIN_NOMBRE]) if pts_data else 0
+    es_lider_racha = (racha_mi_usuario == max_racha_global and max_racha_global > 0)
+
+    def render_logro(titulo, descripcion, barra_progreso, max_valor, icono, condicion):
+        prog = min(barra_progreso / max_valor, 1.0)
+        if condicion:
+            st.markdown(f"""
+            <div style='background: linear-gradient(135deg, #1A3322, #111A24); border: 2px solid #00E676; border-radius: 12px; padding: 15px; margin-bottom: 12px;'>
+                <div style='display:flex; justify-content: space-between; align-items:center;'>
+                    <div><span style='font-size:1.4em; margin-right:10px;'>{icono}</span><strong>{titulo}</strong><br><span style='font-size:0.85em; color:#8899A6;'>{descripcion}</span></div>
+                    <div style='background-color:#00E676; color:#060D13; font-weight:bold; font-size:0.75em; padding: 3px 8px; border-radius:20px;'>DESBLOQUEADO</div>
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+        else:
+            st.markdown(f"""
+            <div style='background-color: #141E29; border: 1px solid #1E2A38; border-radius: 12px; padding: 15px; margin-bottom: 12px; opacity: 0.65;'>
+                <div><span style='font-size:1.4em; margin-right:10px;'>🔒</span><strong style='color:#8899A6;'>{titulo}</strong><br><span style='font-size:0.85em; color:#6D7E8C;'>{descripcion}</span></div>
+            </div>
+            """, unsafe_allow_html=True)
+            st.progress(prog)
+
+    render_logro("🎯 Francotirador", "Acierta 1 resultado exacto con marcador perfecto (+20 puntos).", plenos_exactos, 1, "🎯", plenos_exactos >= 1)
+    render_logro("🚀 Incombustible", "Logra rascar puntos en 3 partidos diferentes.", partidos_con_puntos, 3, "🚀", partidos_con_puntos >= 3)
+    render_logro("🔥 On Fire!", "Sé el líder actual de la racha de la comunidad.", racha_mi_usuario, max_racha_global if max_racha_global > 0 else 1, "🔥", es_lider_racha)
+    render_logro("🚩 Especialista Extra", "Acierta 3 mercados extra de tarjetas, córners o faltas.", mercados_extra_acertados, 3, "🚩", mercados_extra_acertados >= 3)
+    render_logro("🛡️ Veterano Validado", "Ten tu estado verificado y pagado en el bote global.", 1 if datos_actuales.get("Estado") == "Pagado" else 0, 1, "🛡️", datos_actuales.get("Estado") == "Pagado")
+
+# ================================
+# TAB 6: REGLAS
+# ================================
+with tabs[5]:
     st.markdown(f"""
     <div class='bote-box'>
         <div style='text-transform: uppercase; letter-spacing: 1.5px; font-size: 0.9em; color: #8899A6; font-weight: 800;'>💰 BOTE ACUMULADO ACTUAL 💰</div>
@@ -606,24 +793,23 @@ with tabs[3]:
     ### 📜 Reglas de la Porra Mundial 2026
     
     1. **Ganador o Empate (5 Puntos):** Recibirás **5 puntos** si logras acertar qué equipo ganará el encuentro o si el partido terminará en empate.
-    *(Por ejemplo, si apuestas un 2-0 y el partido queda 1-0, te llevas los 5 puntos).*
-       
-    2. **Resultado Exacto (20 Puntos):** Recibirás **20 puntos en total** (15 del marcador exacto + 5 del ganador acumulados) si consigues acertar la cantidad exacta de goles que marcará cada equipo (ejemplo: 2-1, 0-0, 3-0).
     
-    3. **Mercados Extra (+2 Puntos c/u):** Cada acierto en Más/Menos sumará 2 puntos extra (máximo 6 extra por partido).
+    2. **Resultado Exacto (20 Puntos):** Recibirás **20 puntos en total** (15 del marcador exacto + 5 del ganador acumulados) si consigues acertar la cantidad exacta de goles.
+    
+    3. **Mercados Extra (+2 Puntos c/u):** Cada acierto en Más/Menos sumará 2 puntos extra.
     Las líneas oficiales son:
        * 🚩 Córners: **{LINEA_CORNERS}**
        * 🟨 Tarjetas: **{LINEA_TARJETAS}**
        * 🛑 Faltas: **{LINEA_FALTAS}**
        
-    4. **Indicador de Racha (🔥):** El jugador o jugadores que hayan sumado la mayor cantidad de puntos en los **últimos 3 partidos cerrados** recibirán el distintivo especial de fuego en la tabla de clasificaciones.
+    4. **Indicador de Racha (🔥):** El jugador o jugadores que hayan sumado la mayor cantidad de puntos en los **últimos 3 partidos cerrados** recibirán el distintivo de fuego.
     """)
 
 # ================================
-# TAB 5: ADMIN
+# TAB 7: ADMIN
 # ================================
 if es_admin:
-    with tabs[4]:
+    with tabs[6]:
         st.subheader("🛠️ Panel Admin")
         p_admin = [p for p in partidos_raw if not p.get('Resultado_real') and datetime.fromisoformat(p['Fecha_hora']).replace(tzinfo=timezone.utc) < hora_actual_espana]
         if p_admin:
