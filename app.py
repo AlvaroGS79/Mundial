@@ -590,7 +590,7 @@ with tabs[3]:
 # TAB 5: CHAT GLOBAL DE LA COMUNIDAD
 # ================================
 with tabs[4]:
-    st.markdown("<h3 style='text-align: center;'><span class='text-gradient'>💬 CHAT</span></h3>", unsafe_allow_html=True)
+    st.markdown("<h3 style='text-align: center;'><span class='text-gradient'>💬 CHAT DE LA PORRA</span></h3>", unsafe_allow_html=True)
     
     # Recarga en tiempo real de los mensajes
     try:
@@ -600,8 +600,8 @@ with tabs[4]:
     except Exception as e:
         mensajes_chat = []
 
-    # Inicializamos el contenedor sin saltos de línea extraños
-    chat_html = "<div style='background-color: #111A24; border: 1px solid #1E2A38; border-radius: 16px; padding: 15px; height: 350px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px;'>"
+    # 🆔 Le añadimos un ID único ('chat-container') al div para que JavaScript pueda controlarlo
+    chat_html = "<div id='chat-container' style='background-color: #111A24; border: 1px solid #1E2A38; border-radius: 16px; padding: 15px; height: 350px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px;'>"
     
     if not mensajes_chat:
         chat_html += "<p style='color: #8899A6; text-align: center; font-style: italic; margin: auto;'>¡Nadie ha hablado aún! Rompe el hielo...</p>"
@@ -616,23 +616,37 @@ with tabs[4]:
             except:
                 hora_str = ""
             
-            # Compresiones en una sola línea para que Streamlit Markdown no se confunda
+            # 👑 MEJORA: Distintivo si el que escribe es el Admin
+            nombre_mostrar = autor
+            if autor == ADMIN_NOMBRE:  # Cambia ADMIN_NOMBRE por la variable o string de tu admin
+                nombre_mostrar = f"👑 {autor} (Admin)"
+            
+            # Burbujas limpias en una sola línea
             if autor == st.session_state["Apodo"]:
                 chat_html += f"<div style='align-self: flex-end; background: linear-gradient(135deg, #00C853, #00E676); color: #060D13; padding: 8px 14px; border-radius: 16px 16px 2px 16px; max-width: 80%; box-shadow: 0 2px 4px rgba(0,0,0,0.2);'><div style='font-size: 0.75em; font-weight: 900; opacity: 0.8; margin-bottom: 2px;'>Tú ({hora_str})</div><div style='font-size: 0.95em; font-weight: 500;'>{texto}</div></div>"
             else:
-                chat_html += f"<div style='align-self: flex-start; background-color: #1A2433; color: #E1E8ED; padding: 8px 14px; border-radius: 16px 16px 16px 2px; max-width: 80%; border: 1px solid #2C3E50;'><div style='font-size: 0.75em; font-weight: 800; color: #00E676; margin-bottom: 2px;'>{autor} <span style='color: #8899A6; font-weight: 400;'>({hora_str})</span></div><div style='font-size: 0.95em;'>{texto}</div></div>"
+                chat_html += f"<div style='align-self: flex-start; background-color: #1A2433; color: #E1E8ED; padding: 8px 14px; border-radius: 16px 16px 16px 2px; max-width: 80%; border: 1px solid #2C3E50;'><div style='font-size: 0.75em; font-weight: 800; color: #00E676; margin-bottom: 2px;'>{nombre_mostrar} <span style='color: #8899A6; font-weight: 400;'>({hora_str})</span></div><div style='font-size: 0.95em;'>{texto}</div></div>"
                 
     chat_html += "</div>"
     
-    # Renderizado usando contenedores limpios
-    st.markdown(chat_html, unsafe_allow_html=True)
-    st.write("") # Espaciador
+    # 📜 SCRIPT DE AUTO-SCROLL: Fuerza al contenedor a bajar al fondo nada más cargar
+    chat_html += """
+    <script>
+        var chatBox = document.getElementById('chat-container');
+        if (chatBox) {
+            chatBox.scrollTop = chatBox.scrollHeight;
+        }
+    </script>
+    """
     
-    # Formulario de envío
+    st.markdown(chat_html, unsafe_allow_html=True)
+    st.write("") 
+    
+    # Formulario de envío clásico y minimalista
     with st.form("form_enviar_chat", clear_on_submit=True, border=False):
         c_txt, c_btn = st.columns([4, 1])
         with c_txt:
-            nuevo_msg = st.text_input("Escribe tu mensaje...", placeholder="Ej: ¡Vaya robo de partido! 🤬", label_visibility="collapsed").strip()
+            nuevo_msg = st.text_input("Escribe tu mensaje...", placeholder="Escribe un mensaje aquí...", label_visibility="collapsed").strip()
         with c_btn:
             enviar = st.form_submit_button("ENVIAR")
             
