@@ -564,7 +564,7 @@ with tabs[2]:
                 if part.get('Id') == (partidos_raw[0]['Id'] if partidos_raw else None):
                     # Rotación simple de emparejamientos basada en el ID del partido
                     desplazamiento = part['Id'] % (num_jugadores if num_jugadores % 2 == 0 else num_jugadores - 1)
-                    if displacement == 0: displacement = 1
+                    if desplazamiento == 0: desplazamiento = 1
                     
                     for idx_c, comb in enumerate(lista_combatientes):
                         if comb["Id"] == mi_id:
