@@ -512,7 +512,7 @@ with tabs[2]:
 # TAB 4: ESTADÍSTICAS DEL GRUPO (ESTÉTICA DE TABLAS SEPARADAS ORIGINAL)
 # ================================
 with tabs[3]:
-    st.markdown("<h3 style='text-align: center;'><span class='text-gradient'>📊 LÍDERES DE MERCADO</span></h3>", unsafe_allow_html=True)
+    st.markdown("<h3 style='text-align: center;'><span class='text-gradient'>📊 LÍDERES</span></h3>", unsafe_allow_html=True)
     st.write("Analítica pura del torneo. Descubre quién es el que más domina cada uno de los apartados.")
     st.divider()
     
