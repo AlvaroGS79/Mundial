@@ -513,7 +513,7 @@ with tabs[2]:
 
     # --- COLUMNA 1: LADO IZQUIERDO INTERNO (4 partidos de 1/16) ---
     with col1:
-        st.markdown("<p style='text-align:center; font-size:0.75em; color:#8899A6; font-weight:900;'>1/16 FINAL (IZQ)</p>", unsafe_allow_html=True)
+        st.markdown("<p style='text-align:center; font-size:0.75em; color:#8899A6; font-weight:900;'>DIECISEISAVOS (IZQ)</p>", unsafe_allow_html=True)
         html_c1 = ""
         for i in range(4): # Primeros 4 de dieciseisavos (0, 1, 2, 3)
             p = obtener_partido_elim("1/16", i)
@@ -575,7 +575,7 @@ with tabs[2]:
 
     # --- COLUMNA 5: LADO DERECHO INTERNO (Los otros 4 partidos de 1/16) ---
     with col5:
-        st.markdown("<p style='text-align:center; font-size:0.75em; color:#8899A6; font-weight:900;'>1/16 FINAL (DER)</p>", unsafe_allow_html=True)
+        st.markdown("<p style='text-align:center; font-size:0.75em; color:#8899A6; font-weight:900;'>DIECISEISAVOS (DER)</p>", unsafe_allow_html=True)
         html_c5 = ""
         for i in range(4): # Siguientes 4 de dieciseisavos (4, 5, 6, 7)
             p = obtener_partido_elim("1/16", i + 4)
