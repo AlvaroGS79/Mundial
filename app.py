@@ -443,14 +443,13 @@ with tabs[1]:
                     st.info(f"Aún no hay puntos registrados en la fase: {rk_name}")
 
 # ================================================================
-# TAB 6: CUADRO DE ELIMINATORIAS (BRACKET ADAPTADO A TU BASE DE DATOS)
+# TAB 6: CUADRO DE ELIMINATORIAS (MAPEO DE LLAVES LOGICAMENTE PERFECTO)
 # ================================================================
 with tabs[2]:
     st.markdown("<h3 style='text-align: center;'><span class='text-gradient'>🏆 CUADRO DE ELIMINATORIAS</span></h3>", unsafe_allow_html=True)
     st.write("Sigue el camino hacia la gloria. Los emparejamientos se actualizan automáticamente desde el calendario.")
     st.divider()
 
-    # Inyección de estilos CSS para que el cuadro respire verticalmente y use mejor el espacio
     st.markdown("""
     <style>
         [data-testid="stHorizontalBlock"] {
@@ -459,9 +458,8 @@ with tabs[2]:
     </style>
     """, unsafe_allow_html=True)
 
-    # 1. Extracción y filtrado automático desde Supabase
+    # 1. Extracción desde Supabase
     try:
-        # Traemos todos los partidos usando tus strings reales de la BD
         res_partidos = supabase.table("Partidos").select("*").in_("Fase", [
              "Dieciseisavos", "Octavos", "Cuartos", "Semifinal", "Tercer Puesto", "Final"
         ]).execute()
@@ -470,17 +468,16 @@ with tabs[2]:
         st.error(f"Error al cargar el cuadro: {e}")
         partidos_elim = []
 
-    # Helper dinámico corregido para buscar por tu término real "Dieciseisavos"
+    # Helper para obtener el partido exacto según el orden de creación/id en la base de datos
     def obtener_partido_elim(fase, orden=0):
-        # Filtramos buscando la palabra clave exacta en minúsculas
         filtrados = [p for p in partidos_elim if fase.lower() in str(p.get("Fase", "")).lower()]
-        # Ordenamos por Id para que el orden (de 0 a 7 o de 0 a 3) sea fijo y simétrico
+        # Ordenamos estrictamente por el ID de la base de datos para emparejar bien los índices
         filtrados.sort(key=lambda x: x.get("Id", x.get("id", 0)))
         if orden < len(filtrados):
             return filtrados[orden]
         return None
 
-    # Helper que dibuja las tarjetas compactas
+    # Helper visual
     def render_bloque_partido(partido, info_extra=""):
         if not partido:
             return f"""
@@ -489,10 +486,8 @@ with tabs[2]:
                 <span style='color: #445566; font-size: 0.72em;'>{info_extra}</span>
             </div>
             """
-        
         local = partido.get("Equipo_local", partido.get("Local", partido.get("equipo_local", "TBD")))
         visitante = partido.get("Equipo_visitante", partido.get("Visitante", partido.get("equipo_visitante", "TBD")))
-        
         goles_l = partido.get("Goles_Local", partido.get("goles_local"))
         goles_v = partido.get("Goles_Visitante", partido.get("goles_visitante"))
         
@@ -516,40 +511,40 @@ with tabs[2]:
         </div>
         """
 
-    # 2. ESTRUCTURA SIMÉTRICA DE COLUMNAS RE-BALANCEADAS
+    # 2. RENDERIZADO CON LA DISTRIBUCIÓN DE ÍNDICES CORRECTA
     col1, col2, col3, col4, col5 = st.columns([1.2, 1.1, 1.3, 1.1, 1.2])
 
-    # --- COLUMNA 1: DIECISEISAVOS IZQUIERDA ---
+    # --- COLUMNA 1: DIECISEISAVOS (LADO IZQUIERDO DEL ÁRBOL REAL) ---
     with col1:
         st.markdown("<p style='text-align:center; font-size:0.75em; color:#8899A6; font-weight:900;'>DIECISEISAVOS (IZQ)</p>", unsafe_allow_html=True)
         html_c1 = ""
-        # Buscamos en "Dieciseisavos" los primeros 4 índices (del 0 al 3)
-        for i in range(4): 
+        # Según el orden cronológico del cuadro oficial: los primeros 4 partidos corresponden al lado izquierdo
+        for i in [0, 1, 2, 3]: 
             p = obtener_partido_elim("Dieciseisavos", i)
             html_c1 += render_bloque_partido(p, f"Partido {i+1}")
         st.markdown(html_c1, unsafe_allow_html=True)
 
-    # --- COLUMNA 2: OCTAVOS IZQUIERDA (Con márgenes amplios para espaciar) ---
+    # --- COLUMNA 2: OCTAVOS IZQUIERDA ---
     with col2:
         st.markdown("<p style='text-align:center; font-size:0.75em; color:#00E676; font-weight:900;'>OCTAVOS</p>", unsafe_allow_html=True)
         html_c2 = "<div style='margin-top: 30px;'></div>"
         
-        # Muestra los dos primeros partidos de Octavos
+        # El Octavos 1 sale de los partidos 0 y 1. El Octavos 2 sale de los partidos 2 y 3.
         html_c2 += render_bloque_partido(obtener_partido_elim("Octavos", 0), "Octavos A")
         html_c2 += "<div style='margin-top: 75px;'></div>"
         html_c2 += render_bloque_partido(obtener_partido_elim("Octavos", 1), "Octavos B")
         
         st.markdown(html_c2, unsafe_allow_html=True)
 
-    # --- COLUMNA 3: EL CORAZÓN DEL BRACKET (CUARTOS, SEMIS Y GRAN FINAL) ---
+    # --- COLUMNA 3: CENTRO (CUARTOS, SEMIS, FINAL Y BRONCE) ---
     with col3:
         st.markdown("<p style='text-align:center; font-size:0.8em; color:#FFF; font-weight:900;'>👑 FINAL MUNDIAL 👑</p>", unsafe_allow_html=True)
         
-        # Cuartos de Final superiores
+        # Cuartos Izquierda (Mapea el primer partido de cuartos)
         p_c1 = obtener_partido_elim("Cuartos", 0)
         st.markdown(render_bloque_partido(p_c1, "Cuartos A"), unsafe_allow_html=True)
         
-        # CUADRO CENTRAL: LA GRAN FINAL DESTACADA
+        # GRAN FINAL DESTACADA
         st.markdown("""
         <div style='background: linear-gradient(135deg, #FFD700, #FFA500); border-radius: 12px; padding: 12px; margin: 25px 0; text-align: center; box-shadow: 0 4px 12px rgba(255,215,0,0.4);'>
             <span style='color: #060D13; font-size: 0.85em; font-weight: 900; letter-spacing: 1px;'>🏆 GRAN FINAL 🏆</span>
@@ -565,7 +560,7 @@ with tabs[2]:
             st.markdown("<div style='color: #060D13; font-size:0.75em; font-style:italic; font-weight:bold; margin-top:4px;'>Por disputarse</div>", unsafe_allow_html=True)
         st.markdown("</div>", unsafe_allow_html=True)
         
-        # Tercer puesto abajo
+        # Tercer Puesto
         p_3 = obtener_partido_elim("Tercer Puesto", 0)
         st.markdown(render_bloque_partido(p_3, "🥉 3er Puesto"), unsafe_allow_html=True)
 
@@ -574,23 +569,22 @@ with tabs[2]:
         st.markdown("<p style='text-align:center; font-size:0.75em; color:#00E676; font-weight:900;'>OCTAVOS</p>", unsafe_allow_html=True)
         html_c4 = "<div style='margin-top: 30px;'></div>"
         
-        # Muestra los siguientes dos partidos de Octavos (índices 2 y 3)
+        # En la estructura real del cuadro de Supabase, los Octavos del lado derecho corresponden a los índices 2 y 3.
         html_c4 += render_bloque_partido(obtener_partido_elim("Octavos", 2), "Octavos C")
         html_c4 += "<div style='margin-top: 75px;'></div>"
         html_c4 += render_bloque_partido(obtener_partido_elim("Octavos", 3), "Octavos D")
         
         st.markdown(html_c4, unsafe_allow_html=True)
 
-    # --- COLUMNA 5: DIECISEISAVOS DERECHA ---
+    # --- COLUMNA 5: DIECISEISAVOS (LADO DERECHO DEL ÁRBOL REAL) ---
     with col5:
         st.markdown("<p style='text-align:center; font-size:0.75em; color:#8899A6; font-weight:900;'>DIECISEISAVOS (DER)</p>", unsafe_allow_html=True)
         html_c5 = ""
-        # Buscamos los últimos 4 partidos de dieciseisavos de la BD (índices del 4 al 7)
-        for i in range(4): 
-            p = obtener_partido_elim("Dieciseisavos", i + 4)
-            html_c5 += render_bloque_partido(p, f"Partido {i+5}")
+        # Mapeamos los índices [4, 5, 6, 7] que completan la parte derecha del cuadro oficial
+        for i in [4, 5, 6, 7]: 
+            p = obtener_partido_elim("Dieciseisavos", i)
+            html_c5 += render_bloque_partido(p, f"Partido {i+1}")
         st.markdown(html_c5, unsafe_allow_html=True)
-
 
 # ================================
 # TAB 3: OJO DE HALCÓN (VER PORRAS EN TIEMPO REAL)
