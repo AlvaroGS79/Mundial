@@ -223,7 +223,8 @@ orden_fases = ["Fase de Grupos", "Dieciseisavos", "Octavos", "Cuartos", "Semifin
 fases_existentes = sorted(list(set(p["Fase_Visual"] for p in partidos_raw)), key=lambda x: orden_fases.index(x) if x in orden_fases else 99)
 
 # MENÚ DE PESTAÑAS INTEGRANDO EL CHAT
-tabs_labels = ["📅 Partidos", "🏆 Ranking", "🔍 Ver Porras", "📊 Estadísticas", "💬 Chat", "📜 Reglas"]
+# Busca esta línea y cámbiala para incluir "🏆 Cuadro" antes de "📜 Reglas"
+tabs_labels = ["📅 Partidos", "🏆 Ranking", "🔍 Ver Porras", "📊 Estadísticas", "💬 Chat", "🖼️ Cuadro", "📜 Reglas"]
 if es_admin: tabs_labels.append("🛠️ Admin")
 tabs = st.tabs(tabs_labels)
 
@@ -441,11 +442,133 @@ with tabs[1]:
                 else:
                     st.info(f"Aún no hay puntos registrados en la fase: {rk_name}")
 
+# ================================================================
+# TAB 6: NUEVO - CUADRO DE ELIMINATORIAS (BRACKET) <-- PEGALO AQUÍ
+# ================================================================
+with tabs[2]:
+    st.markdown("<h3 style='text-align: center;'><span class='text-gradient'>🏆 CUADRO DE ELIMINATORIAS</span></h3>", unsafe_allow_html=True)
+    st.write("Sigue el camino hacia la gloria. Los emparejamientos se actualizan automáticamente desde el calendario.")
+    st.divider()
 
+    # 1. Extracción y filtrado de datos desde Supabase
+    try:
+        res_partidos = supabase.table("Partidos").select("*").in_("Fase", [
+            "1/16 de Final", "Octavos", "Cuartos", "Semifinal", "Final", "Tercer Puesto"
+        ]).execute()
+        partidos_elim = res_partidos.data
+    except Exception as e:
+        st.error(f"Error al cargar el cuadro: {e}")
+        partidos_elim = []
+
+    def obtener_partido_elim(fase, orden=0):
+        filtrados = [p for p in partidos_elim if p.get("Fase") == fase]
+        filtrados.sort(key=lambda x: x.get("Id", 0)) # O "id" en minúscula según tu tabla
+        if orden < len(filtrados):
+            return filtrados[orden]
+        return None
+
+    def render_bloque_partido(partido, info_extra=""):
+        if not partido:
+            return f"""
+            <div style='background-color: #1A2433; border: 1px dashed #2C3E50; border-radius: 8px; padding: 8px; margin-bottom: 12px; text-align: center;'>
+                <span style='color: #556677; font-size: 0.8em; font-weight: bold;'>Por definir</span><br>
+                <span style='color: #445566; font-size: 0.75em;'>{info_extra}</span>
+            </div>
+            """
+        local = partido.get("Equipo_local", partido.get("Local", "TBD"))
+        visitante = partido.get("Equipo_visitante", partido.get("Visitante", "TBD"))
+        goles_l = partido.get("Goles_Local")
+        goles_v = partido.get("Goles_Visitante")
+        
+        marcador_l = f"<b>{goles_l}</b>" if goles_l is not None else "-"
+        marcador_v = f"<b>{goles_v}</b>" if goles_v is not None else "-"
+        bg_color = "#1E2A38" if goles_l is not None else "#111A24"
+        border_color = "#00E676" if goles_l is not None else "#1E2A38"
+        
+        return f"""
+        <div style='background-color: {bg_color}; border: 1px solid {border_color}; border-radius: 8px; padding: 6px 10px; margin-bottom: 10px; box-shadow: 0 2px 4px rgba(0,0,0,0.15);'>
+            <table style='width: 100%; border-collapse: collapse; color: #E1E8ED; font-size: 0.85em;'>
+                <tr>
+                    <td style='padding: 2px 0;'>🏳️ {local[:12]}</td>
+                    <td style='text-align: right; width: 25px; color: #00E676;'>{marcador_l}</td>
+                </tr>
+                <tr>
+                    <td style='padding: 2px 0;'>🏳️ {visitante[:12]}</td>
+                    <td style='text-align: right; width: 25px; color: #00E676;'>{marcador_v}</td>
+                </tr>
+            </table>
+        </div>
+        """
+
+    col1, col2, col3, col4, col5 = st.columns([1.2, 1.1, 1.1, 1.3, 1.2])
+
+    with col1:
+        st.markdown("<p style='text-align:center; font-size:0.75em; color:#8899A6; font-weight:900;'>1/16 FINAL</p>", unsafe_allow_html=True)
+        html_c1 = ""
+        for i in range(8):
+            p = obtener_partido_elim("1/16 de Final", i)
+            html_c1 += render_bloque_partido(p, f"Partido {i+1}")
+        st.markdown(html_c1, unsafe_allow_html=True)
+
+    with col2:
+        st.markdown("<p style='text-align:center; font-size:0.75em; color:#00E676; font-weight:900;'>OCTAVOS</p>", unsafe_allow_html=True)
+        html_c2 = "<div style='margin-top: 25px;'></div>"
+        for i in range(4):
+            p = obtener_partido_elim("Octavos", i)
+            html_c2 += render_bloque_partido(p, f"Octavos {i+1}")
+            html_c2 += "<div style='margin-top: 30px;'></div>"
+        st.markdown(html_c2, unsafe_allow_html=True)
+
+    with col3:
+        st.markdown("<p style='text-align:center; font-size:0.75em; color:#00C853; font-weight:900;'>CUARTOS</p>", unsafe_allow_html=True)
+        html_c3 = "<div style='margin-top: 75px;'></div>"
+        p_c1 = obtener_partido_elim("Cuartos", 0)
+        html_c3 += render_bloque_partido(p_c1, "Cuartos A")
+        html_c3 += "<div style='margin-top: 190px;'></div>"
+        p_c2 = obtener_partido_elim("Cuartos", 1)
+        html_c3 += render_bloque_partido(p_c2, "Cuartos B")
+        st.markdown(html_c3, unsafe_allow_html=True)
+
+    with col4:
+        st.markdown("<p style='text-align:center; font-size:0.8em; color:#FFF; font-weight:900;'>🔥 FINAL</p>", unsafe_allow_html=True)
+        st.markdown("<div style='margin-top:20px;'></div>", unsafe_allow_html=True)
+        p_s1 = obtener_partido_elim("Semifinal", 0)
+        st.markdown(render_bloque_partido(p_s1, "Semifinal 1"), unsafe_allow_html=True)
+        
+        st.markdown("""
+        <div style='background: linear-gradient(135deg, #FFD700, #FFA500); border-radius: 12px; padding: 12px; margin: 35px 0; text-align: center; box-shadow: 0 4px 10px rgba(255,215,0,0.3);'>
+            <span style='color: #060D13; font-size: 0.85em; font-weight: 900; letter-spacing: 1px;'>🏆 GRAN FINAL 🏆</span>
+        """, unsafe_allow_html=True)
+        p_f = obtener_partido_elim("Final", 0)
+        if p_f:
+            st.markdown(f"""
+                <div style='color: #060D13; font-weight: bold; font-size:0.9em; margin-top:5px;'>
+                    {p_f.get('Equipo_local', 'TBD')} vs {p_f.get('Equipo_visitante', 'TBD')}<br>
+                    <span style='font-size:1.1em; color:#000;'>{p_f.get('Goles_Local','-')} : {p_f.get('Goles_Visitante','-')}</span>
+                </div>
+            """, unsafe_allow_html=True)
+        else:
+            st.markdown("<div style='color: #333; font-size:0.75em; font-style:italic;'>Por disputarse</div>", unsafe_allow_html=True)
+        st.markdown("</div>", unsafe_allow_html=True)
+        
+        p_s2 = obtener_partido_elim("Semifinal", 1)
+        st.markdown(render_bloque_partido(p_s2, "Semifinal 2"), unsafe_allow_html=True)
+        
+        p_3 = obtener_partido_elim("Tercer Puesto", 0)
+        st.markdown(render_bloque_partido(p_3, "🥉 3er Puesto"), unsafe_allow_html=True)
+
+    with col5:
+        st.markdown("<p style='text-align:center; font-size:0.75em; color:#00E676; font-weight:900;'>OCTAVOS (DER)</p>", unsafe_allow_html=True)
+        html_c5 = "<div style='margin-top: 25px;'></div>"
+        for i in range(4):
+            p = obtener_partido_elim("Octavos", i + 4)
+            html_c5 += render_bloque_partido(p, f"Octavos {i+5}")
+            html_c5 += "<div style='margin-top: 30px;'></div>"
+        st.markdown(html_c5, unsafe_allow_html=True)
 # ================================
 # TAB 3: OJO DE HALCÓN (VER PORRAS EN TIEMPO REAL)
 # ================================
-with tabs[2]:
+with tabs[3]:
     st.markdown("<h3 style='text-align: center;'><span class='text-gradient'>🔍 OJO DE HALCÓN</span></h3>", unsafe_allow_html=True)
     st.write("Selecciona un partido para ver qué ha votado absolutamente todo el grupo en tiempo real. Los partidos del futuro permanecen ocultos hasta que empiezan.")
     st.divider()
@@ -511,7 +634,7 @@ with tabs[2]:
 # ================================
 # TAB 4: ESTADÍSTICAS DEL GRUPO (ESTÉTICA DE TABLAS SEPARADAS ORIGINAL)
 # ================================
-with tabs[3]:
+with tabs[4]:
     st.markdown("<h3 style='text-align: center;'><span class='text-gradient'>📊 LÍDERES</span></h3>", unsafe_allow_html=True)
     st.write("Analítica pura del torneo. Descubre quién es el que más domina cada uno de los apartados.")
     st.divider()
@@ -589,7 +712,7 @@ with tabs[3]:
 # ================================
 # TAB 5: CHAT GLOBAL DE LA COMUNIDAD
 # ================================
-with tabs[4]:
+with tabs[5]:
     st.markdown("<h3 style='text-align: center;'><span class='text-gradient'>💬 CHAT</span></h3>", unsafe_allow_html=True)
     
     # 1. Carga de mensajes (Los más nuevos primero para combinarse con el column-reverse)
@@ -652,7 +775,7 @@ with tabs[4]:
 # ================================
 # TAB 6: REGLAS
 # ================================
-with tabs[5]:
+with tabs[6]:
     st.markdown(f"""
     <div class='bote-box'>
         <div style='text-transform: uppercase; letter-spacing: 1.5px; font-size: 0.9em; color: #8899A6; font-weight: 800;'>💰 BOTE ACUMULADO ACTUAL 💰</div>
@@ -681,7 +804,7 @@ with tabs[5]:
 # TAB 7: ADMIN
 # ================================
 if es_admin:
-    with tabs[6]:
+    with tabs[7]:
         st.subheader("🛠️ Panel Admin")
         p_admin = [p for p in partidos_raw if not p.get('Resultado_real') and datetime.fromisoformat(p['Fecha_hora']).replace(tzinfo=timezone.utc) < hora_actual_espana]
         if p_admin:
