@@ -454,7 +454,7 @@ with tabs[2]:
     try:
         # Traemos todos los partidos. Asegúrate de que los nombres de las fases coincidan con tu BD.
         res_partidos = supabase.table("Partidos").select("*").in_("Fase", [
-            "1/16 de Final", "1/16 Final", "Octavos", "Cuartos", "Semifinal", "Final", "Tercer Puesto"
+             "Dieciseisavos", "Octavos", "Cuartos", "Semifinal", "Tercer Puesto", "Final"
         ]).execute()
         partidos_elim = res_partidos.data
     except Exception as e:
