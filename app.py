@@ -478,7 +478,7 @@ with tabs[2]:
                     return p
         return None
 
-    # Helper visual de tarjetas (Cambiado el emoji de bandera por uno universal)
+    # Helper visual de tarjetas blindado para detectar cualquier tipo de resultado
     def render_bloque_partido(partido, info_extra=""):
         if not partido:
             return f"""
@@ -489,13 +489,24 @@ with tabs[2]:
             """
         local = partido.get("Equipo_local", partido.get("Local", partido.get("equipo_local", "TBD")))
         visitante = partido.get("Equipo_visitante", partido.get("Visitante", partido.get("equipo_visitante", "TBD")))
-        goles_l = partido.get("Goles_Local", partido.get("goles_local"))
-        goles_v = partido.get("Goles_Visitante", partido.get("goles_visitante"))
         
-        marcador_l = f"<b>{goles_l}</b>" if goles_l is not None else "-"
-        marcador_v = f"<b>{goles_v}</b>" if goles_v is not None else "-"
-        bg_color = "#1E2A38" if goles_l is not None else "#111A24"
-        border_color = "#00E676" if goles_l is not None else "#2C3E50"
+        # Extraemos los goles intentando todas las combinaciones de mayúsculas y minúsculas
+        g_l = partido.get("Goles_Local", partido.get("goles_local", partido.get("Goles_local")))
+        g_v = partido.get("Goles_Visitante", partido.get("goles_visitante", partido.get("Goles_visitante")))
+        
+        # Filtro estricto: Comprobamos si el valor no es None y no es un texto vacío
+        tiene_resultado = (g_l is not None and str(g_l).strip() != "") and (g_v is not None and str(g_v).strip() != "")
+        
+        if tiene_resultado:
+            marcador_l = f"<b>{g_l}</b>"
+            marcador_v = f"<b>{g_v}</b>"
+            bg_color = "#1E2A38"
+            border_color = "#00E676"  # Borde verde luminoso si ya hay resultado
+        else:
+            marcador_l = "-"
+            marcador_v = "-"
+            bg_color = "#111A24"
+            border_color = "#2C3E50"  # Borde apagado si no se ha jugado
         
         return f"""
         <div style='background-color: {bg_color}; border: 1px solid {border_color}; border-radius: 8px; padding: 8px 12px; margin-bottom: 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.2);'>
