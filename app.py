@@ -443,168 +443,23 @@ with tabs[1]:
                     st.info(f"Aún no hay puntos registrados en la fase: {rk_name}")
 
 # ================================================================
-# TAB 6: CUADRO DE ELIMINATORIAS (SIMETRÍA ESCALONADA AJUSTADA)
+# TAB 6: CUADRO DE ELIMINATORIAS (MÉTODO DIRECTO POR IMAGEN)
 # ================================================================
 with tabs[2]:
     st.markdown("<h3 style='text-align: center;'><span class='text-gradient'>🏆 CUADRO DE ELIMINATORIAS</span></h3>", unsafe_allow_html=True)
-    st.write("Haz clic en cualquier partido para desplegar los detalles completos del enfrentamiento.")
+    st.write("Consulta el estado actual de las fases eliminatorias y el camino hacia la gran final.")
     st.divider()
 
-    # 1. Extracción desde Supabase de todas las fases eliminatorias reales
+    # Opción A: Si tienes la imagen descargada en la misma carpeta que tu app.py
     try:
-        res_partidos = supabase.table("Partidos").select("*").in_("Fase", [
-             "Dieciseisavos", "Octavos", "Cuartos", "Semifinales", "3er y 4º Puesto", "Final"
-        ]).execute()
-        partidos_elim = res_partidos.data
-    except Exception as e:
-        st.error(f"Error al cargar el cuadro: {e}")
-        partidos_elim = []
-
-    # Helper MULTI-FASE: Busca el partido exacto según su columna de orden correspondiente
-    def obtener_partido_por_orden(fase, numero_orden):
-        for p in partidos_elim:
-            fase_db = str(p.get("Fase", "")).lower()
-            if fase.lower() in fase_db:
-                if "dieciseisavos" in fase_db: val = p.get("Orden_16")
-                elif "octavos" in fase_db: val = p.get("Orden_8")
-                elif "cuartos" in fase_db: val = p.get("Orden_4")
-                elif "semifinales" in fase_db: val = p.get("Orden_Semis")
-                else: val = None
-                
-                if val is not None and int(float(val)) == numero_orden:
-                    return p
-        return None
-
-    # Helper para las finales únicas (Final y Tercer puesto)
-    def obtener_partido_unico(fase):
-        for p in partidos_elim:
-            if fase.lower() == str(p.get("Fase", "")).lower():
-                return p
-        return None
-
-    # ⚽ COMPONENTE INTERACTIVO NATIVO CON FECHA Y HORA
-    def render_bloque_partido_interactivo(partido, info_extra=""):
-        if not partido:
-            st.markdown("<div style='height: 48px; border: 1px dashed #2C3E50; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 0.68em; color: #556677; margin-bottom: 12px;'>🔒 Por definir</div>", unsafe_allow_html=True)
-            return
-
-        local = partido.get("Equipo_local", "TBD")
-        visitante = partido.get("Equipo_visitante", "TBD")
-        res = partido.get("Resultado_real")
-        fecha_str = partido.get("Fecha_hora", "")
+        st.image("cuadro_mundial.jpg", caption="Árbol oficial de la Fase Final - Mundial 2026", use_container_width=True)
+    except:
+        # Opción B: Por si acaso no encuentra el archivo local, te dejamos un aviso o una URL
+        st.info("🖼️ Añade el archivo 'cuadro_mundial.jpg' en la carpeta de tu proyecto para visualizar el árbol de cruces.")
         
-        info_fecha = "📅 Fecha por confirmar"
-        if fecha_str:
-            try:
-                dt = datetime.fromisoformat(fecha_str.replace("Z", "+00:00"))
-                meses = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"]
-                info_fecha = f"📅 {dt.day} {meses[dt.month-1]} - {dt.strftime('%H:%M')}"
-            except:
-                info_fecha = f"📅 {fecha_str[:16]}"
+        # Si prefieres usar un enlace de internet, descomenta la línea de abajo y pon tu URL:
+        # st.image("https://tusitio.com/cuadro.jpg", use_container_width=True)
 
-        marcador_l, marcador_v, tiene_resultado = "-", "-", False
-        if res is not None and isinstance(res, str) and '-' in res:
-            partes = res.split('-')
-            if len(partes) == 2:
-                marcador_l, marcador_v, tiene_resultado = partes[0].strip(), partes[1].strip(), True
-        
-        marcador_btn = f" ({res})" if tiene_resultado else ""
-        label_boton = f"⚽ {str(local)[:6]} vs {str(visitante)[:6]}{marcador_btn}"
-        
-        # Fecha en la parte superior del botón
-        st.markdown(f"<p style='margin: 0px 0px 2px 0px; padding: 0; font-size: 0.63em; color: #8899A6; font-weight: bold; text-align: center;'>{info_fecha}</p>", unsafe_allow_html=True)
-        
-        # Desplegable Popover nativo de Streamlit
-        with st.popover(label_boton, use_container_width=True):
-            st.markdown(f"**📌 {info_extra}**")
-            st.write("---")
-            col_l, col_vs, col_v = st.columns([2, 1, 2])
-            with col_l:
-                st.markdown(f"<p style='font-size:1.1em; font-weight:bold; text-align:center;'>{local}</p>", unsafe_allow_html=True)
-                st.markdown(f"<h3 style='text-align:center; color:#00E676;'>{marcador_l}</h3>", unsafe_allow_html=True)
-            with col_vs:
-                st.markdown("<p style='text-align:center; margin-top:15px; color:#8899A6;'>VS</p>", unsafe_allow_html=True)
-            with col_v:
-                st.markdown(f"<p style='font-size:1.1em; font-weight:bold; text-align:center;'>{visitante}</p>", unsafe_allow_html=True)
-                st.markdown(f"<h3 style='text-align:center; color:#00E676;'>{marcador_v}</h3>", unsafe_allow_html=True)
-
-    # 2. PROPORCIONES DE 9 COLUMNAS CON ESPACIADOS AMPLIADOS (CALIBRACIÓN MÁXIMA)
-    col1, col2, col3, col4, col5, col6, col7, col8, col9 = st.columns([1.1, 1.0, 1.0, 1.0, 1.3, 1.0, 1.0, 1.0, 1.1])
-
-    # --- COLUMNA 1: 1/16 IZQUIERDA ---
-    with col1:
-        st.markdown("<p style='text-align:center; font-size:0.7em; color:#8899A6; font-weight:900;'>1/16 IZQ</p>", unsafe_allow_html=True)
-        for num in range(1, 9): 
-            render_bloque_partido_interactivo(obtener_partido_por_orden("Dieciseisavos", num), f"Dieciseisavos - Llave {num}")
-            st.markdown("<div style='margin-bottom: 16px;'></div>", unsafe_allow_html=True)
-
-    # --- COLUMNA 2: OCTAVOS IZQUIERDA (Punto medio entre cada par de 1/16) ---
-    with col2:
-        st.markdown("<p style='text-align:center; font-size:0.7em; color:#00E676; font-weight:900;'>OCTAVOS</p>", unsafe_allow_html=True)
-        st.markdown("<div style='height: 52px;'></div>", unsafe_allow_html=True) # Margen inicial
-        for i, num in enumerate([1, 2, 3, 4]):
-            if i > 0: st.markdown("<div style='height: 124px;'></div>", unsafe_allow_html=True) # Separación ampliada
-            render_bloque_partido_interactivo(obtener_partido_por_orden("Octavos", num), f"Octavos {num}")
-
-    # --- COLUMNA 3: CUARTOS IZQUIERDA (Punto medio entre cada par de Octavos) ---
-    with col3:
-        st.markdown("<p style='text-align:center; font-size:0.7em; color:#00C853; font-weight:900;'>CUARTOS</p>", unsafe_allow_html=True)
-        st.markdown("<div style='height: 154px;'></div>", unsafe_allow_html=True) # Margen inicial
-        for i, num in enumerate([1, 2]):
-            if i > 0: st.markdown("<div style='height: 345px;'></div>", unsafe_allow_html=True) # Separación ampliada
-            render_bloque_partido_interactivo(obtener_partido_por_orden("Cuartos", num), f"Cuartos {num}")
-
-    # --- COLUMNA 4: SEMIFINAL IZQUIERDA (Punto medio entre los 2 de Cuartos) ---
-    with col4:
-        st.markdown("<p style='text-align:center; font-size:0.7em; color:#00B0FF; font-weight:900;'>SEMIS</p>", unsafe_allow_html=True)
-        st.markdown("<div style='height: 360px;'></div>", unsafe_allow_html=True) # Baja al ecuador del cuadro
-        render_bloque_partido_interactivo(obtener_partido_por_orden("Semifinales", 1), "Semifinal 1")
-
-    # --- COLUMNA 5: EL CENTRO ABSOLUTO (GRAN FINAL Y TERCER PUESTO) ---
-    with col5:
-        st.markdown("<p style='text-align:center; font-size:0.75em; color:#FFF; font-weight:900;'>👑 FINAL 👑</p>", unsafe_allow_html=True)
-        
-        # Gran Final alineada en horizontal con las dos Semifinales
-        st.markdown("<div style='height: 300px;'></div>", unsafe_allow_html=True)
-        st.markdown("""
-        <div style='background: linear-gradient(135deg, #FFD700, #FFA500); border-radius: 8px; padding: 4px; margin-bottom: 2px; text-align: center; box-shadow: 0 4px 10px rgba(255,215,0,0.3); width: 100%;'>
-            <span style='color: #060D13; font-size: 0.72em; font-weight: 900;'>🏆 GRAN FINAL 🏆</span>
-        </div>
-        """, unsafe_allow_html=True)
-        render_bloque_partido_interactivo(obtener_partido_unico("Final"), "🏆 GRAN FINAL MUNDIAL 🏆")
-            
-        # Tercer puesto posicionado estéticamente abajo
-        st.markdown("<div style='height: 140px;'></div>", unsafe_allow_html=True)
-        render_bloque_partido_interactivo(obtener_partido_unico("3er y 4º Puesto"), "🥉 Partido por el 3er Puesto")
-
-    # --- COLUMNA 6: SEMIFINAL DERECHA ---
-    with col6:
-        st.markdown("<p style='text-align:center; font-size:0.7em; color:#00B0FF; font-weight:900;'>SEMIS</p>", unsafe_allow_html=True)
-        st.markdown("<div style='height: 360px;'></div>", unsafe_allow_html=True)
-        render_bloque_partido_interactivo(obtener_partido_por_orden("Semifinales", 2), "Semifinal 2")
-
-    # --- COLUMNA 7: CUARTOS DERECHA ---
-    with col7:
-        st.markdown("<p style='text-align:center; font-size:0.7em; color:#00C853; font-weight:900;'>CUARTOS</p>", unsafe_allow_html=True)
-        st.markdown("<div style='height: 154px;'></div>", unsafe_allow_html=True)
-        for i, num in enumerate([3, 4]):
-            if i > 0: st.markdown("<div style='height: 345px;'></div>", unsafe_allow_html=True)
-            render_bloque_partido_interactivo(obtener_partido_por_orden("Cuartos", num), f"Cuartos {num}")
-
-    # --- COLUMNA 8: OCTAVOS DERECHA ---
-    with col8:
-        st.markdown("<p style='text-align:center; font-size:0.7em; color:#00E676; font-weight:900;'>OCTAVOS</p>", unsafe_allow_html=True)
-        st.markdown("<div style='height: 52px;'></div>", unsafe_allow_html=True)
-        for i, num in enumerate([5, 6, 7, 8]):
-            if i > 0: st.markdown("<div style='height: 124px;'></div>", unsafe_allow_html=True)
-            render_bloque_partido_interactivo(obtener_partido_por_orden("Octavos", num), f"Octavos {num}")
-
-    # --- COLUMNA 9: 1/16 DERECHA ---
-    with col9:
-        st.markdown("<p style='text-align:center; font-size:0.7em; color:#8899A6; font-weight:900;'>1/16 DER</p>", unsafe_allow_html=True)
-        for num in range(9, 17): 
-            render_bloque_partido_interactivo(obtener_partido_por_orden("Dieciseisavos", num), f"Dieciseisavos - Llave {num}")
-            st.markdown("<div style='margin-bottom: 16px;'></div>", unsafe_allow_html=True)
 # ================================
 # TAB 3: OJO DE HALCÓN (VER PORRAS EN TIEMPO REAL)
 # ================================
