@@ -452,10 +452,10 @@ with tabs[2]:
 
     # Opción A: Si tienes la imagen descargada en la misma carpeta que tu app.py
     try:
-        st.image("cuadro_mundial.png", caption="Árbol oficial de la Fase Final - Mundial 2026", use_container_width=True)
+        st.image("cuadro_mundial.jpg", caption="Árbol oficial de la Fase Final - Mundial 2026", use_container_width=True)
     except:
         # Opción B: Por si acaso no encuentra el archivo local, te dejamos un aviso o una URL
-        st.info("🖼️ Añade el archivo 'cuadro_mundial.png' en la carpeta de tu proyecto para visualizar el árbol de cruces.")
+        st.info("🖼️ Añade el archivo 'cuadro_mundial.jpg' en la carpeta de tu proyecto para visualizar el árbol de cruces.")
         
         # Si prefieres usar un enlace de internet, descomenta la línea de abajo y pon tu URL:
         # st.image("https://tusitio.com/cuadro.jpg", use_container_width=True)
