@@ -443,128 +443,146 @@ with tabs[1]:
                     st.info(f"Aún no hay puntos registrados en la fase: {rk_name}")
 
 # ================================================================
-# TAB 6: NUEVO - CUADRO DE ELIMINATORIAS (BRACKET) <-- PEGALO AQUÍ
+# TAB 6: CUADRO DE ELIMINATORIAS (BRACKET BLINDADO Y SIMÉTRICO)
 # ================================================================
 with tabs[2]:
     st.markdown("<h3 style='text-align: center;'><span class='text-gradient'>🏆 CUADRO DE ELIMINATORIAS</span></h3>", unsafe_allow_html=True)
     st.write("Sigue el camino hacia la gloria. Los emparejamientos se actualizan automáticamente desde el calendario.")
     st.divider()
 
-    # 1. Extracción y filtrado de datos desde Supabase
+    # 1. Extracción y filtrado automático desde Supabase
     try:
+        # Traemos todos los partidos. Asegúrate de que los nombres de las fases coincidan con tu BD.
         res_partidos = supabase.table("Partidos").select("*").in_("Fase", [
-            "1/16 de Final", "Octavos", "Cuartos", "Semifinal", "Final", "Tercer Puesto"
+            "1/16 de Final", "1/16 Final", "Octavos", "Cuartos", "Semifinal", "Final", "Tercer Puesto"
         ]).execute()
         partidos_elim = res_partidos.data
     except Exception as e:
         st.error(f"Error al cargar el cuadro: {e}")
         partidos_elim = []
 
+    # Helper dinámico que busca tolerando variaciones de nombre en las columnas
     def obtener_partido_elim(fase, orden=0):
-        filtrados = [p for p in partidos_elim if p.get("Fase") == fase]
-        filtrados.sort(key=lambda x: x.get("Id", 0)) # O "id" en minúscula según tu tabla
+        # Filtramos buscando coincidencia exacta o parcial en la Fase
+        filtrados = [p for p in partidos_elim if fase.lower() in str(p.get("Fase", "")).lower()]
+        # Ordenamos por Id o por Fecha para asegurar consistencia de posiciones
+        filtrados.sort(key=lambda x: x.get("Id", x.get("id", 0)))
         if orden < len(filtrados):
             return filtrados[orden]
         return None
 
+    # Helper que dibuja la tarjeta adaptándose a cualquier nombre de columna (Local/Equipo_local)
     def render_bloque_partido(partido, info_extra=""):
         if not partido:
             return f"""
-            <div style='background-color: #1A2433; border: 1px dashed #2C3E50; border-radius: 8px; padding: 8px; margin-bottom: 12px; text-align: center;'>
+            <div style='background-color: #1A2433; border: 1px dashed #2C3E50; border-radius: 8px; padding: 10px; margin-bottom: 15px; text-align: center;'>
                 <span style='color: #556677; font-size: 0.8em; font-weight: bold;'>Por definir</span><br>
-                <span style='color: #445566; font-size: 0.75em;'>{info_extra}</span>
+                <span style='color: #445566; font-size: 0.72em;'>{info_extra}</span>
             </div>
             """
-        local = partido.get("Equipo_local", partido.get("Local", "TBD"))
-        visitante = partido.get("Equipo_visitante", partido.get("Visitante", "TBD"))
-        goles_l = partido.get("Goles_Local")
-        goles_v = partido.get("Goles_Visitante")
+        
+        # Intentamos obtener los nombres de los equipos con todas las variantes posibles de columnas
+        local = partido.get("Equipo_local", partido.get("Local", partido.get("equipo_local", "TBD")))
+        visitante = partido.get("Equipo_visitante", partido.get("Visitante", partido.get("equipo_visitante", "TBD")))
+        
+        goles_l = partido.get("Goles_Local", partido.get("goles_local"))
+        goles_v = partido.get("Goles_Visitante", partido.get("goles_visitante"))
         
         marcador_l = f"<b>{goles_l}</b>" if goles_l is not None else "-"
         marcador_v = f"<b>{goles_v}</b>" if goles_v is not None else "-"
         bg_color = "#1E2A38" if goles_l is not None else "#111A24"
-        border_color = "#00E676" if goles_l is not None else "#1E2A38"
+        border_color = "#00E676" if goles_l is not None else "#2C3E50"
         
         return f"""
-        <div style='background-color: {bg_color}; border: 1px solid {border_color}; border-radius: 8px; padding: 6px 10px; margin-bottom: 10px; box-shadow: 0 2px 4px rgba(0,0,0,0.15);'>
+        <div style='background-color: {bg_color}; border: 1px solid {border_color}; border-radius: 8px; padding: 8px 12px; margin-bottom: 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.2);'>
             <table style='width: 100%; border-collapse: collapse; color: #E1E8ED; font-size: 0.85em;'>
-                <tr>
-                    <td style='padding: 2px 0;'>🏳️ {local[:12]}</td>
-                    <td style='text-align: right; width: 25px; color: #00E676;'>{marcador_l}</td>
+                <tr style='height: 22px;'>
+                    <td style='padding: 2px 0;'>🏳️ {str(local)[:14]}</td>
+                    <td style='text-align: right; width: 25px; color: #00E676; font-weight: bold;'>{marcador_l}</td>
                 </tr>
-                <tr>
-                    <td style='padding: 2px 0;'>🏳️ {visitante[:12]}</td>
-                    <td style='text-align: right; width: 25px; color: #00E676;'>{marcador_v}</td>
+                <tr style='height: 22px;'>
+                    <td style='padding: 2px 0;'>🏳️ {str(visitante)[:14]}</td>
+                    <td style='text-align: right; width: 25px; color: #00E676; font-weight: bold;'>{marcador_v}</td>
                 </tr>
             </table>
         </div>
         """
 
-    col1, col2, col3, col4, col5 = st.columns([1.2, 1.1, 1.1, 1.3, 1.2])
+    # 2. ESTRUCTURA SIMÉTRICA DE 5 COLUMNAS (Izquierda -> Centro <- Derecha)
+    col1, col2, col3, col4, col5 = st.columns([1.2, 1.1, 1.3, 1.1, 1.2])
 
+    # --- COLUMNA 1: LADO IZQUIERDO INTERNO (4 partidos de 1/16) ---
     with col1:
-        st.markdown("<p style='text-align:center; font-size:0.75em; color:#8899A6; font-weight:900;'>1/16 FINAL</p>", unsafe_allow_html=True)
+        st.markdown("<p style='text-align:center; font-size:0.75em; color:#8899A6; font-weight:900;'>1/16 FINAL (IZQ)</p>", unsafe_allow_html=True)
         html_c1 = ""
-        for i in range(8):
-            p = obtener_partido_elim("1/16 de Final", i)
+        for i in range(4): # Primeros 4 de dieciseisavos (0, 1, 2, 3)
+            p = obtener_partido_elim("1/16", i)
             html_c1 += render_bloque_partido(p, f"Partido {i+1}")
         st.markdown(html_c1, unsafe_allow_html=True)
 
+    # --- COLUMNA 2: OCTAVOS IZQUIERDA & DERECHA (Distribución Vertical) ---
     with col2:
         st.markdown("<p style='text-align:center; font-size:0.75em; color:#00E676; font-weight:900;'>OCTAVOS</p>", unsafe_allow_html=True)
-        html_c2 = "<div style='margin-top: 25px;'></div>"
-        for i in range(4):
-            p = obtener_partido_elim("Octavos", i)
-            html_c2 += render_bloque_partido(p, f"Octavos {i+1}")
-            html_c2 += "<div style='margin-top: 30px;'></div>"
+        html_c2 = "<div style='margin-top: 15px;'></div>"
+        
+        # Octavos Izquierda (Primeros 2 partidos de octavos)
+        html_c2 += render_bloque_partido(obtener_partido_elim("Octavos", 0), "Octavos A")
+        html_c2 += "<div style='margin-top: 40px;'></div>"
+        html_c2 += render_bloque_partido(obtener_partido_elim("Octavos", 1), "Octavos B")
+        
         st.markdown(html_c2, unsafe_allow_html=True)
 
+    # --- COLUMNA 3: EL CENTRO (CUARTOS, SEMIS, GRAN FINAL Y BRONCE) ---
     with col3:
-        st.markdown("<p style='text-align:center; font-size:0.75em; color:#00C853; font-weight:900;'>CUARTOS</p>", unsafe_allow_html=True)
-        html_c3 = "<div style='margin-top: 75px;'></div>"
-        p_c1 = obtener_partido_elim("Cuartos", 0)
-        html_c3 += render_bloque_partido(p_c1, "Cuartos A")
-        html_c3 += "<div style='margin-top: 190px;'></div>"
-        p_c2 = obtener_partido_elim("Cuartos", 1)
-        html_c3 += render_bloque_partido(p_c2, "Cuartos B")
-        st.markdown(html_c3, unsafe_allow_html=True)
-
-    with col4:
-        st.markdown("<p style='text-align:center; font-size:0.8em; color:#FFF; font-weight:900;'>🔥 FINAL</p>", unsafe_allow_html=True)
-        st.markdown("<div style='margin-top:20px;'></div>", unsafe_allow_html=True)
-        p_s1 = obtener_partido_elim("Semifinal", 0)
-        st.markdown(render_bloque_partido(p_s1, "Semifinal 1"), unsafe_allow_html=True)
+        st.markdown("<p style='text-align:center; font-size:0.8em; color:#FFF; font-weight:900;'>👑 FINAL MUNDIAL 👑</p>", unsafe_allow_html=True)
         
+        # Cuartos de Final (Unificado arriba)
+        p_c1 = obtener_partido_elim("Cuartos", 0)
+        p_c2 = obtener_partido_elim("Cuartos", 1)
+        st.markdown(render_bloque_partido(p_c1, "Cuartos A"), unsafe_allow_html=True)
+        
+        # BLOQUE CENTRAL DESTACADO: LA GRAN FINAL
         st.markdown("""
-        <div style='background: linear-gradient(135deg, #FFD700, #FFA500); border-radius: 12px; padding: 12px; margin: 35px 0; text-align: center; box-shadow: 0 4px 10px rgba(255,215,0,0.3);'>
+        <div style='background: linear-gradient(135deg, #FFD700, #FFA500); border-radius: 12px; padding: 12px; margin: 15px 0; text-align: center; box-shadow: 0 4px 10px rgba(255,215,0,0.3);'>
             <span style='color: #060D13; font-size: 0.85em; font-weight: 900; letter-spacing: 1px;'>🏆 GRAN FINAL 🏆</span>
         """, unsafe_allow_html=True)
         p_f = obtener_partido_elim("Final", 0)
         if p_f:
-            st.markdown(f"""
-                <div style='color: #060D13; font-weight: bold; font-size:0.9em; margin-top:5px;'>
-                    {p_f.get('Equipo_local', 'TBD')} vs {p_f.get('Equipo_visitante', 'TBD')}<br>
-                    <span style='font-size:1.1em; color:#000;'>{p_f.get('Goles_Local','-')} : {p_f.get('Goles_Visitante','-')}</span>
-                </div>
-            """, unsafe_allow_html=True)
+            loc = p_f.get("Equipo_local", p_f.get("Local", "TBD"))
+            vis = p_f.get("Equipo_visitante", p_f.get("Visitante", "TBD"))
+            gl = p_f.get("Goles_Local", "-")
+            gv = p_f.get("Goles_Visitante", "-")
+            st.markdown(f"<div style='color:#060D13; font-weight:bold; font-size:0.85em; margin-top:5px;'>{loc} vs {vis}<br><span style='font-size:1.1em;'>{gl} : {gv}</span></div>", unsafe_allow_html=True)
         else:
-            st.markdown("<div style='color: #333; font-size:0.75em; font-style:italic;'>Por disputarse</div>", unsafe_allow_html=True)
+            st.markdown("<div style='color: #060D13; font-size:0.75em; font-style:italic; font-weight:bold; margin-top:4px;'>Por disputarse</div>", unsafe_allow_html=True)
         st.markdown("</div>", unsafe_allow_html=True)
         
-        p_s2 = obtener_partido_elim("Semifinal", 1)
-        st.markdown(render_bloque_partido(p_s2, "Semifinal 2"), unsafe_allow_html=True)
-        
+        # Tercer puesto abajo
         p_3 = obtener_partido_elim("Tercer Puesto", 0)
         st.markdown(render_bloque_partido(p_3, "🥉 3er Puesto"), unsafe_allow_html=True)
 
+    # --- COLUMNA 4: OCTAVOS DERECHA ---
+    with col4:
+        st.markdown("<p style='text-align:center; font-size:0.75em; color:#00E676; font-weight:900;'>OCTAVOS</p>", unsafe_allow_html=True)
+        html_c4 = "<div style='margin-top: 15px;'></div>"
+        
+        # Octavos Derecha (Siguientes 2 partidos de octavos, índices 2 y 3)
+        html_c4 += render_bloque_partido(obtener_partido_elim("Octavos", 2), "Octavos C")
+        html_c4 += "<div style='margin-top: 40px;'></div>"
+        html_c4 += render_bloque_partido(obtener_partido_elim("Octavos", 3), "Octavos D")
+        
+        st.markdown(html_c4, unsafe_allow_html=True)
+
+    # --- COLUMNA 5: LADO DERECHO INTERNO (Los otros 4 partidos de 1/16) ---
     with col5:
-        st.markdown("<p style='text-align:center; font-size:0.75em; color:#00E676; font-weight:900;'>OCTAVOS (DER)</p>", unsafe_allow_html=True)
-        html_c5 = "<div style='margin-top: 25px;'></div>"
-        for i in range(4):
-            p = obtener_partido_elim("Octavos", i + 4)
-            html_c5 += render_bloque_partido(p, f"Octavos {i+5}")
-            html_c5 += "<div style='margin-top: 30px;'></div>"
+        st.markdown("<p style='text-align:center; font-size:0.75em; color:#8899A6; font-weight:900;'>1/16 FINAL (DER)</p>", unsafe_allow_html=True)
+        html_c5 = ""
+        for i in range(4): # Siguientes 4 de dieciseisavos (4, 5, 6, 7)
+            p = obtener_partido_elim("1/16", i + 4)
+            html_c5 += render_bloque_partido(p, f"Partido {i+5}")
         st.markdown(html_c5, unsafe_allow_html=True)
+
+
 # ================================
 # TAB 3: OJO DE HALCÓN (VER PORRAS EN TIEMPO REAL)
 # ================================
