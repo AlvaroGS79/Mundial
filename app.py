@@ -224,7 +224,7 @@ fases_existentes = sorted(list(set(p["Fase_Visual"] for p in partidos_raw)), key
 
 # MENÚ DE PESTAÑAS INTEGRANDO EL CHAT
 # Busca esta línea y cámbiala para incluir "🏆 Cuadro" antes de "📜 Reglas"
-tabs_labels = ["📅 Partidos", "🏆 Ranking", "🔍 Ver Porras", "📊 Estadísticas", "💬 Chat", "🖼️ Cuadro", "📜 Reglas"]
+tabs_labels = ["📅 Partidos", "🏆 Ranking",  "🖼️ Cuadro", "🔍 Ver Porras", "📊 Estadísticas", "💬 Chat", "📜 Reglas"]
 if es_admin: tabs_labels.append("🛠️ Admin")
 tabs = st.tabs(tabs_labels)
 
