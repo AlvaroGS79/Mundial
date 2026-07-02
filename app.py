@@ -351,96 +351,74 @@ with tabs[0]:
                                 if fecha_p > hora_actual_espana:
                                     st.markdown("<p style='font-size:0.7em; color:#8899A6; text-align:center; font-style:italic;'>Los pronósticos completos de tus amigos se revelarán en la pestaña '🔍 Ver Porras' al empezar el partido.</p>", unsafe_allow_html=True)
 
-# ================================
-# TAB 2: RANKING DINÁMICO
-# ================================
+# ================================================================
+# TAB 2: RANKING CONSOLIDADO (RÁPIDO, BLINDADO Y SIN BUCLES)
+# ================================================================
 with tabs[1]:
     if not usuarios_ranking: 
         st.info("Sin usuarios para mostrar en el ranking.")
     else:
-        # CÁLCULO DE PUNTOS (100% fiable)
-        pts_data = {u['Id']: {"Id": u['Id'], "Jugador (Apodo)": u['Apodo'] if u['Apodo'] else "Sin Apodo", "Global": 0, "Racha_Pts": 0} for u in usuarios_ranking}
-        for f in fases_existentes:
-            for uid in pts_data: pts_data[uid][f] = 0
-        
-        partidos_con_resultado = [p for p in partidos_db if p.get('Resultado_real') and '-' in str(p['Resultado_real'])]
+        st.markdown("<h3 style='text-align: center; margin-bottom: 20px;'><span class='text-gradient'>🏆 CLASIFICACIÓN GENERAL</span></h3>", unsafe_allow_html=True)
+        st.write("Los puntos obtenidos durante la Fase de Grupos ya han sido consolidados de forma fija en tu perfil.")
+        st.divider()
+
+        # 1. ORDENAR CLASIFICACIÓN DIRECTAMENTE DESDE LA COLUMNA 'Puntos' DE TU BBDD
+        # Obtenemos los valores asumiendo que tu tabla Usuarios tiene "Apodo" y "Puntos"
         try:
-            partidos_con_resultado = sorted(partidos_con_resultado, key=lambda x: datetime.fromisoformat(x['Fecha_hora']).timestamp(), reverse=True)
-        except:
-            pass
-        ultimos_3_partidos_ids = [p['Id'] for p in partidos_con_resultado[:3]]
-                
-        for p in partidos_db:
-            res_real = p.get('Resultado_real')
-            c_real = p.get('Corners_real')
-            t_real = p.get('Tarjetas_real')
-            f_real = p.get('Faltas_real')
+            ranking_ordenado = sorted(
+                usuarios_ranking, 
+                key=lambda x: int(float(x.get('Puntos', 0) if x.get('Puntos') is not None else 0)), 
+                reverse=True
+            )
+        except Exception as e:
+            st.error(f"Error al ordenar el ranking: {e}")
+            ranking_ordenado = usuarios_ranking
+
+        if ranking_ordenado:
+            # 🥇 PODIO VISUAL DINÁMICO (Primeros 3 puestos de la columna fija)
+            c1, c2, c3 = st.columns(3)
             
-            if res_real and '-' in str(res_real):
-                out_real = get_outcome(res_real)
-                fase_val = "Fase de Grupos" if "Grupo" in p["Fase"] else p["Fase"]
+            # Primer Puesto
+            p1_name = ranking_ordenado[0].get('Apodo') or "Sin Apodo"
+            p1_pts = ranking_ordenado[0].get('Puntos', 0)
+            with c1: 
+                st.markdown(f"<div class='podium-gold'>🥇<br><b>{p1_name}</b><br>{p1_pts} pts</div>", unsafe_allow_html=True)
+            
+            # Segundo Puesto
+            if len(ranking_ordenado) > 1:
+                p2_name = ranking_ordenado[1].get('Apodo') or "Sin Apodo"
+                p2_pts = ranking_ordenado[1].get('Puntos', 0)
+                with c2: 
+                    st.markdown(f"<div class='podium-silver'>🥈<br><b>{p2_name}</b><br>{p2_pts} pts</div>", unsafe_allow_html=True)
+            
+            # Tercer Puesto
+            if len(ranking_ordenado) > 2:
+                p3_name = ranking_ordenado[2].get('Apodo') or "Sin Apodo"
+                p3_pts = ranking_ordenado[2].get('Puntos', 0)
+                with c3: 
+                    st.markdown(f"<div class='podium-bronze'>🥉<br><b>{p3_name}</b><br>{p3_pts} pts</div>", unsafe_allow_html=True)
+            
+            st.write("---")
+            
+            # 📋 TABLA DETALLADA GENERAL CON DATA FRAME
+            final_rows = []
+            for puesto, u in enumerate(ranking_ordenado, start=1):
+                nombre_visual = u.get('Apodo') or "Sin Apodo"
+                puntos_visual = u.get('Puntos', 0)
                 
-                for v in todas_porras:
-                    if v['Id_partido'] == p['Id'] and v['Id_usuario'] in pts_data:
-                        pts_partido = 0
-                        pred = str(v['Prediccion'])
-                        if '-' in pred:
-                            if pred == res_real: pts_partido += 20
-                            elif get_outcome(pred) == out_real: pts_partido += 5
-                        
-                        if c_real is not None and v.get('Pred_Corners'):
-                            if (c_real > LINEA_CORNERS and v['Pred_Corners'] == 'Más') or (c_real < LINEA_CORNERS and v['Pred_Corners'] == 'Menos'): pts_partido += 2
-                        if t_real is not None and v.get('Pred_Tarjetas'):
-                            if (t_real > LINEA_TARJETAS and v['Pred_Tarjetas'] == 'Más') or (t_real < LINEA_TARJETAS and v['Pred_Tarjetas'] == 'Menos'): pts_partido += 2
-                        if f_real is not None and v.get('Pred_Faltas'):
-                            if (f_real > LINEA_FALTAS and v['Pred_Faltas'] == 'Más') or (f_real < LINEA_FALTAS and v['Pred_Faltas'] == 'Menos'): pts_partido += 2
-                            
-                        if pts_partido > 0:
-                            pts_data[v['Id_usuario']]["Global"] += pts_partido
-                            if fase_val in pts_data[v['Id_usuario']]:
-                                pts_data[v['Id_usuario']][fase_val] += pts_partido
-                            if p['Id'] in ultimos_3_partidos_ids:
-                                pts_data[v['Id_usuario']]["Racha_Pts"] += pts_partido
-
-        max_racha = max([u["Racha_Pts"] for u in pts_data.values()]) if pts_data else 0
-
-        # Sub-pestañas Filtro de Clasificación
-        ranking_tabs_names = ["Global"] + fases_existentes
-        rk_tabs = st.tabs(ranking_tabs_names)
-        
-        for i, rk_name in enumerate(ranking_tabs_names):
-            with rk_tabs[i]:
-                ranking_ordenado = sorted(pts_data.values(), key=lambda x: x[rk_name], reverse=True)
-                ranking_filtrado = [u for u in ranking_ordenado if u[rk_name] > 0]
+                # Coronamos visualmente al líder en la tabla
+                if puesto == 1:
+                    nombre_visual = f"👑 {nombre_visual} (Líder)"
                 
-                if ranking_filtrado:
-                    st.markdown(f"<h3 style='text-align: center; margin-bottom: 20px;'><span class='text-gradient'>🏆 CLASIFICACIÓN: {rk_name.upper()}</span></h3>", unsafe_allow_html=True)
-                    
-                    # 🥇 PODIO VISUAL
-                    c1, c2, c3 = st.columns(3)
-                    with c1: st.markdown(f"<div class='podium-gold'>🥇<br>{ranking_filtrado[0]['Jugador (Apodo)']}<br>{ranking_filtrado[0][rk_name]} pts</div>", unsafe_allow_html=True)
-                    if len(ranking_filtrado) > 1:
-                        with c2: st.markdown(f"<div class='podium-silver'>🥈<br>{ranking_filtrado[1]['Jugador (Apodo)']}<br>{ranking_filtrado[1][rk_name]} pts</div>", unsafe_allow_html=True)
-                    if len(ranking_filtrado) > 2:
-                        with c3: st.markdown(f"<div class='podium-bronze'>🥉<br>{ranking_filtrado[2]['Jugador (Apodo)']}<br>{ranking_filtrado[2][rk_name]} pts</div>", unsafe_allow_html=True)
-                    
-                    st.write("---")
-                    
-                    # 📋 TABLA DETALLADA DIRECTA (SIN GRÁFICO DE BARRAS)
-                    final_rows = []
-                    for u in ranking_ordenado:
-                        nombre_visual = u['Jugador (Apodo)']
-                        if u['Racha_Pts'] == max_racha and max_racha > 0:
-                            nombre_visual = f"🔥 {nombre_visual} (En Racha)"
-                        
-                        final_rows.append({
-                            "Jugador (Apodo)": nombre_visual,
-                            "Puntos": u[rk_name],
-                            "Racha (Últ. 3 part.)": f"{u['Racha_Pts']} pts"
-                        })
-                    st.dataframe(pd.DataFrame(final_rows), use_container_width=True, hide_index=True)
-                else:
-                    st.info(f"Aún no hay puntos registrados en la fase: {rk_name}")
+                final_rows.append({
+                    "Puesto": f"Nº {puesto}",
+                    "Jugador (Apodo)": nombre_visual,
+                    "Puntos Totales": f"{puntos_visual} pts"
+                })
+                
+            st.dataframe(pd.DataFrame(final_rows), use_container_width=True, hide_index=True)
+        else:
+            st.info("Aún no hay registros de puntos en la base de datos.")
 
 # ================================================================
 # TAB 6: CUADRO DE ELIMINATORIAS (MÉTODO DIRECTO POR IMAGEN)
@@ -695,13 +673,14 @@ with tabs[6]:
     4. **Indicador de Racha (🔥):** El jugador o jugadores que hayan sumado la mayor cantidad de puntos en los **últimos 3 partidos cerrados** recibirán el distintivo especial de fuego en la tabla de clasificaciones.
     """)
 
-# ================================
-# TAB 7: ADMIN
-# ================================
+# ================================================================
+# TAB 7: ADMIN (OPTIMIZADO Y BLINDADO CONTRA CAÍDAS)
+# ================================================================
 if es_admin:
     with tabs[7]:
         st.subheader("🛠️ Panel Admin")
         p_admin = [p for p in partidos_raw if not p.get('Resultado_real') and datetime.fromisoformat(p['Fecha_hora']).replace(tzinfo=timezone.utc) < hora_actual_espana]
+        
         if p_admin:
             p_sel = st.selectbox("Partido finalizado:", p_admin, format_func=lambda x: f"{x['Equipo_local']} vs {x['Equipo_visitante']}")
             
@@ -718,31 +697,61 @@ if es_admin:
             real_f = c_af.number_input("🛑 Faltas", 0, 60, 0)
             
             if st.button("GUARDAR RESULTADO Y REPARTIR PUNTOS", type="primary"):
+                # 1. Guardamos el resultado del partido en Supabase
                 supabase.table("Partidos").update({
-                    "Resultado_real": gan_str, "Corners_real": real_c, "Tarjetas_real": real_t, "Faltas_real": real_f
+                    "Resultado_real": gan_str, 
+                    "Corners_real": real_c, 
+                    "Tarjetas_real": real_t, 
+                    "Faltas_real": real_f
                 }).eq("Id", p_sel['Id']).execute()
                 
+                # 2. Calculamos los aciertos basándonos en las apuestas de este partido
                 out_real = get_outcome(gan_str)
                 votos_partido = [v for v in todas_porras if v['Id_partido'] == p_sel['Id']]
                 
                 for v in votos_partido:
                     pts_sum = 0
-                    pred = str(v['Prediccion'])
-                    if '-' in pred:
-                        if pred == gan_str: pts_sum += 20
-                        elif get_outcome(pred) == out_real: pts_sum += 5
+                    pred = str(v.get('Prediccion', ''))
                     
+                    # --- A) Goles ---
+                    if '-' in pred:
+                        if pred == gan_str: 
+                            pts_sum += 20
+                        elif get_outcome(pred) == out_real: 
+                            pts_sum += 5
+                    
+                    # --- B) Córners ---
                     if v.get('Pred_Corners') and real_c is not None:
-                        if (real_c > LINEA_CORNERS and v['Pred_Corners'] == 'Más') or (real_c < LINEA_CORNERS and v['Pred_Corners'] == 'Menos'): pts_sum += 2
+                        if (real_c > LINEA_CORNERS and v['Pred_Corners'] == 'Más') or (real_c < LINEA_CORNERS and v['Pred_Corners'] == 'Menos'): 
+                            pts_sum += 2
+                            
+                    # --- C) Tarjetas ---
                     if v.get('Pred_Tarjetas') and real_t is not None:
-                        if (real_t > LINEA_TARJETAS and v['Pred_Tarjetas'] == 'Más') or (real_t < LINEA_TARJETAS and v['Pred_Tarjetas'] == 'Menos'): pts_sum += 2
+                        if (real_t > LINEA_TARJETAS and v['Pred_Tarjetas'] == 'Más') or (real_t < LINEA_TARJETAS and v['Pred_Tarjetas'] == 'Menos'): 
+                            pts_sum += 2
+                            
+                    # --- D) Faltas ---
                     if v.get('Pred_Faltas') and real_f is not None:
-                        if (real_f > LINEA_FALTAS and v['Pred_Faltas'] == 'Más') or (real_f < LINEA_FALTAS and v['Pred_Faltas'] == 'Menos'): pts_sum += 2
-                        
+                        if (real_f > LINEA_FALTAS and v['Pred_Faltas'] == 'Más') or (real_f < LINEA_FALTAS and v['Pred_Faltas'] == 'Menos'): 
+                            pts_sum += 2
+                    
+                    # 3. Suma acumulativa sobre los puntos fijos de la tabla Usuarios
                     if pts_sum > 0:
-                        pts_act = supabase.table("Usuarios").select("Puntos").eq("Id", v['Id_usuario']).execute().data[0]['Puntos']
-                        supabase.table("Usuarios").update({"Puntos": pts_act + pts_sum}).eq("Id", v['Id_usuario']).execute()
+                        try:
+                            res_user = supabase.table("Usuarios").select("Puntos").eq("Id", v['Id_usuario']).execute().data
+                            if res_user:
+                                # Uso de .get con fallback a 0 previene fallos si la columna está vacía (NULL)
+                                pts_act = res_user[0].get('Puntos', 0)
+                                if pts_act is None: pts_act = 0
+                                
+                                supabase.table("Usuarios").update({"Puntos": int(pts_act) + pts_sum}).eq("Id", v['Id_usuario']).execute()
+                        except Exception as user_err:
+                            # Si falla un usuario concreto, el bucle continúa con el resto y la app no se cuelga
+                            st.warning(f"No se pudieron actualizar los puntos del usuario ID {v['Id_usuario']}: {user_err}")
+                
+                st.success("¡Resultado guardado y puntos inyectados correctamente!")
                 st.rerun()
+                
         st.divider()
         u_pend = supabase.table("Usuarios").select("*").eq("Estado", "Pendiente").execute().data
         if u_pend:
