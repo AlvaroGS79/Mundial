@@ -219,7 +219,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # --- 6. TABS (VISTA PRINCIPAL) ---
-orden_fases = ["Fase de Grupos", "Dieciseisavos", "Octavos", "Cuartos", "Semifinales", "3º y 4º Puesto", "Final"]
+orden_fases = ["Dieciseisavos", "Octavos", "Cuartos", "Semifinales", "3º y 4º Puesto", "Final"]
 fases_existentes = sorted(list(set(p["Fase_Visual"] for p in partidos_raw)), key=lambda x: orden_fases.index(x) if x in orden_fases else 99)
 
 # MENÚ DE PESTAÑAS INTEGRANDO EL CHAT
