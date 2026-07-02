@@ -229,14 +229,20 @@ st.markdown("""
     </script>
 """, unsafe_allow_html=True)
 
-# --- 6. TABS (VISTA PRINCIPAL) ---
+# ================================================================
+# --- 6. TABS (VISTA PRINCIPAL - FILTRANDO FASE DE GRUPOS) ---
+# ================================================================
 orden_fases = ["Dieciseisavos", "Octavos", "Cuartos", "Semifinales", "3º y 4º Puesto", "Final"]
-fases_existentes = sorted(list(set(p["Fase_Visual"] for p in partidos_raw)), key=lambda x: orden_fases.index(x) if x in orden_fases else 99)
+
+# 🌟 CORRECCIÓN: Filtramos para que NO incluya "Fase de Grupos" en la lista de pestañas
+fases_existentes = sorted(
+    list(set(p["Fase_Visual"] for p in partidos_raw if "Grupo" not in p["Fase"] and p["Fase_Visual"] != "Fase de Grupos")), 
+    key=lambda x: orden_fases.index(x) if x in orden_fases else 99
+)
 
 tabs_labels = ["📅 Partidos", "🏆 Ranking",  "🖼️ Cuadro", "🔍 Ver Porras", "📊 Estadísticas", "💬 Chat", "📜 Reglas"]
 if es_admin: tabs_labels.append("🛠️ Admin")
 tabs = st.tabs(tabs_labels)
-
 # ================================
 # TAB 1: PARTIDOS (CON MODIFICACIÓN DE PORRAS HASTA 1 MIN ANTES)
 # ================================
