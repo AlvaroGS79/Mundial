@@ -492,7 +492,7 @@ with tabs[3]:
                     else: row["Tarjetas"] = v.get('Pred_Tarjetas', '-')
                          
                     if p_sel.get('Faltas_real') is not None and v.get('Pred_Faltas'):
-                        hit = (p_sel['Faltas_real'] > LINEA_FALTAS and v['Pred_Faltas'] == 'Más') or (p_sel['Faltas_real'] < LINEA_FALTAS seaw v['Pred_Faltas'] == 'Menos')
+                        hit = (p_sel['Faltas_real'] > LINEA_FALTAS and v['Pred_Faltas'] == 'Más') or (p_sel['Faltas_real'] < LINEA_FALTAS and v['Pred_Faltas'] == 'Menos')
                         row["Faltas"] = f"{v['Pred_Faltas']} " + ("🟢 (+2)" if hit else "🔴")
                     else: row["Faltas"] = v.get('Pred_Faltas', '-')
                 else:
