@@ -670,7 +670,7 @@ with tabs[6]:
     """)
 
 # ================================================================
-# TAB 7: ADMIN (OPTIMIZADO Y BLINDADO CONTRA CAÍDAS)
+# TAB 7: ADMIN (GESTIÓN EXCLUSIVA DE PUNTOS ELIMINATORIAS Y GRUPOS)
 # ================================================================
 if es_admin:
     with tabs[7]:
@@ -693,7 +693,7 @@ if es_admin:
             real_f = c_af.number_input("🛑 Faltas", 0, 60, 0)
             
             if st.button("GUARDAR RESULTADO Y REPARTIR PUNTOS", type="primary"):
-                # 1. Guardamos el resultado del partido en Supabase
+                # 1. Guardamos el resultado real del encuentro en la tabla "Partidos"
                 supabase.table("Partidos").update({
                     "Resultado_real": gan_str, 
                     "Corners_real": real_c, 
@@ -701,7 +701,7 @@ if es_admin:
                     "Faltas_real": real_f
                 }).eq("Id", p_sel['Id']).execute()
                 
-                # 2. Calculamos los aciertos basándonos en las apuestas de este partido
+                # 2. Filtramos las porras registradas para este partido
                 out_real = get_outcome(gan_str)
                 votos_partido = [v for v in todas_porras if v['Id_partido'] == p_sel['Id']]
                 
@@ -709,45 +709,46 @@ if es_admin:
                     pts_sum = 0
                     pred = str(v.get('Prediccion', ''))
                     
-                    # --- A) Goles ---
+                    # --- A) Goles (Exacto 20pts / Ganador o Empate 5pts) ---
                     if '-' in pred:
                         if pred == gan_str: 
                             pts_sum += 20
                         elif get_outcome(pred) == out_real: 
                             pts_sum += 5
                     
-                    # --- B) Córners ---
+                    # --- B) Córners (2pts) ---
                     if v.get('Pred_Corners') and real_c is not None:
                         if (real_c > LINEA_CORNERS and v['Pred_Corners'] == 'Más') or (real_c < LINEA_CORNERS and v['Pred_Corners'] == 'Menos'): 
                             pts_sum += 2
                             
-                    # --- C) Tarjetas ---
+                    # --- C) Tarjetas (2pts) ---
                     if v.get('Pred_Tarjetas') and real_t is not None:
                         if (real_t > LINEA_TARJETAS and v['Pred_Tarjetas'] == 'Más') or (real_t < LINEA_TARJETAS and v['Pred_Tarjetas'] == 'Menos'): 
                             pts_sum += 2
                             
-                    # --- D) Faltas ---
+                    # --- D) Faltas (2pts) ---
                     if v.get('Pred_Faltas') and real_f is not None:
                         if (real_f > LINEA_FALTAS and v['Pred_Faltas'] == 'Más') or (real_f < LINEA_FALTAS and v['Pred_Faltas'] == 'Menos'): 
                             pts_sum += 2
                     
-                    # 3. Suma acumulativa sobre los puntos fijos de la tabla Usuarios
+                    # 3. Suma acumulativa estricta en la columna "PuntosEliminatorias"
                     if pts_sum > 0:
                         try:
-                            res_user = supabase.table("Usuarios").select("Puntos").eq("Id", v['Id_usuario']).execute().data
+                            res_user = supabase.table("Usuarios").select("PuntosEliminatorias").eq("Id", v['Id_usuario']).execute().data
                             if res_user:
-                                # Uso de .get con fallback a 0 previene fallos si la columna está vacía (NULL)
-                                pts_act = res_user[0].get('Puntos', 0)
-                                if pts_act is None: pts_act = 0
+                                # Fallback seguro a 0 por si la celda es NULL
+                                pts_act_elim = res_user[0].get('PuntosEliminatorias', 0)
+                                if pts_act_elim is None: pts_act_elim = 0
                                 
-                                supabase.table("Usuarios").update({"Puntos": int(pts_act) + pts_sum}).eq("Id", v['Id_usuario']).execute()
+                                nuevo_total_elim = int(pts_act_elim) + pts_sum
+                                supabase.table("Usuarios").update({"PuntosEliminatorias": nuevo_total_elim}).eq("Id", v['Id_usuario']).execute()
                         except Exception as user_err:
-                            # Si falla un usuario concreto, el bucle continúa con el resto y la app no se cuelga
-                            st.warning(f"No se pudieron actualizar los puntos del usuario ID {v['Id_usuario']}: {user_err}")
+                            st.warning(f"No se pudieron actualizar los puntos eliminatorios del usuario ID {v['Id_usuario']}: {user_err}")
                 
-                st.success("¡Resultado guardado y puntos inyectados correctamente!")
+                st.success("¡Marcador registrado y puntos inyectados en la columna de eliminatorias!")
                 st.rerun()
                 
+        # --- VALIDACIÓN DE PAGOS NATIVA ---
         st.divider()
         u_pend = supabase.table("Usuarios").select("*").eq("Estado", "Pendiente").execute().data
         if u_pend:
@@ -755,3 +756,31 @@ if es_admin:
             if st.button("ACTIVAR USUARIO"):
                 supabase.table("Usuarios").update({"Estado": "Pagado"}).eq("Id", u_sel['Id']).execute()
                 st.rerun()
+
+        # ================================================================
+        # HERRAMIENTA MANUAL: CONSOLIDAR "PuntosGrupos" DESDE LA INTERFAZ
+        # ================================================================
+        st.write("---")
+        st.subheader("📥 Asignar Puntos de Fase de Grupos (Manual)")
+        st.caption("Utiliza esta herramienta para guardar los puntos guardados del CSV en la columna 'PuntosGrupos' de cada usuario.")
+        
+        res_todos = supabase.table("Usuarios").select("Id, Apodo, PuntosGrupos").execute().data
+        if res_todos:
+            u_puntos_sel = st.selectbox(
+                "Selecciona el usuario a actualizar:", 
+                res_todos, 
+                format_func=lambda x: f"{x['Apodo']} (Puntos actuales en grupos: {x.get('PuntosGrupos', 0)})",
+                key="admin_manual_grupos"
+            )
+            
+            # Formateamos el valor por defecto para evitar errores si el campo es nulo
+            val_defecto = int(u_puntos_sel.get('PuntosGrupos', 0) if u_puntos_sel.get('PuntosGrupos') is not None else 0)
+            pts_a_poner = st.number_input("Puntos obtenidos en Fase de Grupos:", 0, 500, val_defecto)
+            
+            if st.button("FIJAR PUNTOS DE GRUPOS EN LA BASE DE DATOS"):
+                try:
+                    supabase.table("Usuarios").update({"PuntosGrupos": pts_a_poner}).eq("Id", u_puntos_sel['Id']).execute()
+                    st.success(f"¡Columna 'PuntosGrupos' de {u_puntos_sel['Apodo']} actualizada con éxito a {pts_a_poner} pts!")
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"Error al actualizar la celda en Supabase: {e}. Asegúrate de haber creado la columna 'PuntosGrupos' en la tabla Usuarios.")
