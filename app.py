@@ -352,14 +352,17 @@ with tabs[0]:
                                         t_bd = pred_t if pred_t != "-" else None
                                         f_bd = pred_f if pred_f != "-" else None
                                         
-                                        supabase.table("Porras").upsert({
-                                            "Id_usuario": st.session_state["Id_usuario"], 
-                                            "Id_partido": p["Id"], 
-                                            "Prediccion": val_bd,
-                                            "Pred_Corners": c_bd,
-                                            "Pred_Tarjetas": t_bd,
-                                            "Pred_Faltas": f_bd
-                                        }).execute()
+                                        supabase.table("Porras").upsert(
+                                            {
+                                                "Id_usuario": st.session_state["Id_usuario"], 
+                                                "Id_partido": p["Id"], 
+                                                "Prediccion": val_bd,
+                                                "Pred_Corners": c_bd,
+                                                "Pred_Tarjetas": t_bd,
+                                                "Pred_Faltas": f_bd
+                                            },
+                                            on_conflict="Id_usuario,Id_partido"  # 🌟 Indicamos las columnas clave
+                                        ).execute()
                                         st.session_state[f"edit_{p['Id']}"] = False
                                         st.rerun()
                                 with col_b2:
