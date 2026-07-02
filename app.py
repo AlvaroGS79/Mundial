@@ -142,7 +142,8 @@ if "Id_usuario" not in st.session_state:
                                     "Apellidos": reg_apellidos,
                                     "Apodo": reg_apodo,
                                     "Password": reg_pass,
-                                    "Puntos": 0,
+                                    "PuntosGrupos": 0,
+                                    "PuntosEliminatorias": 0,
                                     "Estado": "Pendiente"
                                 }).execute()
                                 
@@ -188,7 +189,8 @@ partidos_raw = pendientes + finalizados
 for p in partidos_raw: 
     p["Fase_Visual"] = "Fase de Grupos" if "Grupo" in p["Fase"] else p["Fase"]
 
-todos_usuarios_raw = supabase.table("Usuarios").select("Id, Apodo, Puntos, Estado").order("Puntos", desc=True).execute().data
+# 🌟 CORRECCIÓN CRÍTICA AQUÍ: Cambiado para que seleccione (*) y traiga tus dos columnas nuevas
+todos_usuarios_raw = supabase.table("Usuarios").select("*").execute().data
 dict_nombres = {u['Id']: u['Apodo'] if u['Apodo'] else f"User_{u['Id']}" for u in todos_usuarios_raw}
 
 usuarios_ranking = [u for u in todos_usuarios_raw if u["Apodo"] != ADMIN_NOMBRE]
@@ -200,11 +202,20 @@ todas_porras = supabase.table("Porras").select("*").execute().data
 
 # --- CARGA DEL CHAT ---
 mensajes_chat = supabase.table("Chat").select("*, Usuarios(Apodo)").order("Fecha_hora", desc=True).limit(50).execute().data
-mensajes_chat.reverse()  # Para que los más nuevos salgan abajo
+mensajes_chat.reverse()
 
 with st.sidebar:
     st.sidebar.markdown(f"<h2 style='text-align: center;'><span class='text-gradient'>👤 {st.session_state['Apodo']}</span></h2>", unsafe_allow_html=True)
-    mi_puntos = next((u['Puntos'] for u in todos_usuarios_raw if u['Id'] == st.session_state['Id_usuario']), 0)
+    
+    # Calculamos dinámicamente tus puntos para el Sidebar sumando ambas columnas
+    mi_u = next((u for u in todos_usuarios_raw if u['Id'] == st.session_state['Id_usuario']), None)
+    if mi_u:
+        g_pts = int(float(mi_u.get('PuntosGrupos', mi_u.get('puntosgrupos', 0)) or 0))
+        e_pts = int(float(mi_u.get('PuntosEliminatorias', mi_u.get('puntoseliminatorias', 0)) or 0))
+        mi_puntos = g_pts + e_pts
+    else:
+        mi_puntos = 0
+        
     st.metric("Tus Puntos Totales", mi_puntos)
     if st.button("🚪 Cerrar Sesión"): 
         st.session_state.clear()
@@ -222,8 +233,6 @@ st.markdown("""
 orden_fases = ["Dieciseisavos", "Octavos", "Cuartos", "Semifinales", "3º y 4º Puesto", "Final"]
 fases_existentes = sorted(list(set(p["Fase_Visual"] for p in partidos_raw)), key=lambda x: orden_fases.index(x) if x in orden_fases else 99)
 
-# MENÚ DE PESTAÑAS INTEGRANDO EL CHAT
-# Busca esta línea y cámbiala para incluir "🏆 Cuadro" antes de "📜 Reglas"
 tabs_labels = ["📅 Partidos", "🏆 Ranking",  "🖼️ Cuadro", "🔍 Ver Porras", "📊 Estadísticas", "💬 Chat", "📜 Reglas"]
 if es_admin: tabs_labels.append("🛠️ Admin")
 tabs = st.tabs(tabs_labels)
@@ -258,10 +267,10 @@ with tabs[0]:
                                 v_u = votos_usuario[p['Id']]
                                 mi_voto = v_u['Prediccion']
                                 out_voto = get_outcome(mi_voto)
-                                
+                          
                                 pts_totales_partido = 0
                                 msjs_extras = []
-                                
+                          
                                 if mi_voto == res_real:
                                     pts_totales_partido += 20
                                     msjs_extras.append("🎯 Pleno Marcador Exacto (+20)")
@@ -282,9 +291,9 @@ with tabs[0]:
                                         pts_totales_partido += 2
                                         msjs_extras.append("🟨 Tarjetas (+2)")
                                     else: msjs_extras.append("❌ Tarjetas")
-                                    
+                                   
                                 if p.get('Faltas_real') is not None and v_u.get('Pred_Faltas'):
-                                    if (p['Faltas_real'] > LINEA_FALTAS and v_u['Pred_Faltas'] == 'Más') or (p['Faltas_real'] < LINEA_FALTAS and v_u['Pred_Faltas'] == 'Menos'):
+                                    if (p['Faltas_real'] > LINEA_FALTAS and v_u['Pred_Faltas'] == 'Más') or (p['Faltas_real'] < LINEA_FALTAS and v['Pred_Faltas'] == 'Menos'):
                                         pts_totales_partido += 2
                                         msjs_extras.append("🩼 Faltas (+2)")
                                     else: msjs_extras.append("❌ Faltas")
@@ -339,16 +348,16 @@ with tabs[0]:
                                 p_l = sum(1 for v in votos_p if get_outcome(v['Prediccion']) == '1') / n_total
                                 p_x = sum(1 for v in votos_p if get_outcome(v['Prediccion']) == 'X') / n_total
                                 p_v = sum(1 for v in votos_p if get_outcome(v['Prediccion']) == '2') / n_total
-                                
+            
                                 st.markdown(f"""
                                 <div class='stats-mini'>
                                     <span style='color:#8899A6; font-size:0.85em; font-weight:400; margin-right:10px;'>Tendencia Marcador ({n_total} votos):</span><br>
-                                    <img src='https://flagcdn.com/16x12/{iso_l}.png' class='flag-mini'> {p_l:.0%} &nbsp;&nbsp;|&nbsp;&nbsp; 
+                                    <img src='https://flagcdn.com/16x12/{iso_l}.png' class='flag-mini'> {p_l:.0%} &nbsp;&nbsp;|&nbsp;&nbsp;
                                     🤝 {p_x:.0%} &nbsp;&nbsp;|&nbsp;&nbsp; 
                                     <img src='https://flagcdn.com/16x12/{iso_v}.png' class='flag-mini'> {p_v:.0%}
                                 </div>
                                 """, unsafe_allow_html=True)
-                                if fecha_p > hora_actual_espana:
+                            if fecha_p > hora_actual_espana:
                                     st.markdown("<p style='font-size:0.7em; color:#8899A6; text-align:center; font-style:italic;'>Los pronósticos completos de tus amigos se revelarán en la pestaña '🔍 Ver Porras' al empezar el partido.</p>", unsafe_allow_html=True)
 
 # ================================================================
@@ -362,13 +371,16 @@ with tabs[1]:
         st.write("Sigue la evolución del torneo y comprueba quién domina cada etapa de la porra.")
         st.divider()
 
-        # 1. PROCESADO DE DATOS DESDE TUS NUEVAS COLUMNAS DE SUPABASE
+        # 1. PROCESADO DE DATOS DESDE TUS NUEVAS COLUMNAS DE SUPABASE (ANTI CASE-SENSITIVE)
         pts_data = []
         for u in usuarios_ranking:
-            # Extraemos los valores reales de tus columnas asegurando un fallback a 0 si hay algún NULL
-            pts_grupos = int(float(u.get('PuntosGrupos', 0) if u.get('PuntosGrupos') is not None else 0))
-            pts_elim = int(float(u.get('PuntosEliminatorias', 0) if u.get('PuntosEliminatorias') is not None else 0))
-            pts_global = pts_grupos + pts_elim  # Suma matemática en vivo para el ranking general
+            val_grupos = u.get('PuntosGrupos', u.get('puntosgrupos', 0))
+            pts_grupos = int(float(val_grupos)) if val_grupos is not None else 0
+            
+            val_elim = u.get('PuntosEliminatorias', u.get('puntoseliminatorias', 0))
+            pts_elim = int(float(val_elim)) if val_elim is not None else 0
+            
+            pts_global = pts_grupos + pts_elim
             
             pts_data.append({
                 "Jugador (Apodo)": u.get('Apodo') or "Sin Apodo",
@@ -383,7 +395,6 @@ with tabs[1]:
         
         for i, rk_name in enumerate(ranking_tabs_names):
             with rk_tabs[i]:
-                # Ordenamos la lista de usuarios según los puntos de la pestaña activa
                 ranking_ordenado = sorted(pts_data, key=lambda x: x[rk_name], reverse=True)
                 
                 st.markdown(f"<h4 style='text-align: center; margin-bottom: 20px;'>🥇 PODIO: CLASIFICACIÓN {rk_name.upper()}</h4>", unsafe_allow_html=True)
@@ -406,7 +417,6 @@ with tabs[1]:
                 for puesto, u in enumerate(ranking_ordenado, start=1):
                     nombre_visual = u['Jugador (Apodo)']
                     
-                    # Distintivo estético para el líder actual de la pestaña
                     if puesto == 1 and u[rk_name] > 0:
                         nombre_visual = f"👑 {nombre_visual} (Líder)"
                         
@@ -417,7 +427,6 @@ with tabs[1]:
                         "Puntos Globales": f"{u['Global']} pts"
                     })
                 
-                # Mostramos el DataFrame nativo y limpio de Streamlit
                 st.dataframe(pd.DataFrame(final_rows), use_container_width=True, hide_index=True)
 
 # ================================================================
@@ -428,15 +437,10 @@ with tabs[2]:
     st.write("Consulta el estado actual de las fases eliminatorias y el camino hacia la gran final.")
     st.divider()
 
-    # Opción A: Si tienes la imagen descargada en la misma carpeta que tu app.py
     try:
         st.image("cuadro_mundial.jpg", caption="Árbol oficial de la Fase Final - Mundial 2026", use_container_width=True)
     except:
-        # Opción B: Por si acaso no encuentra el archivo local, te dejamos un aviso o una URL
         st.info("🖼️ Añade el archivo 'cuadro_mundial.jpg' en la carpeta de tu proyecto para visualizar el árbol de cruces.")
-        
-        # Si prefieres usar un enlace de internet, descomenta la línea de abajo y pon tu URL:
-        # st.image("https://tusitio.com/cuadro.jpg", use_container_width=True)
 
 # ================================
 # TAB 3: OJO DE HALCÓN (VER PORRAS EN TIEMPO REAL)
@@ -467,12 +471,12 @@ with tabs[3]:
             data_list = []
             for v in votos_p:
                 row = {"Jugador": dict_nombres.get(v['Id_usuario'], "Anon")}
-                
+               
                 if p_sel.get('Resultado_real'):
                     r_real = p_sel['Resultado_real']
                     o_real = get_outcome(r_real)
                     o_voto = get_outcome(v['Prediccion'])
-                    
+                     
                     if v['Prediccion'] == r_real: row["Resultado"] = f"{v['Prediccion']} 🎯 (+20)"
                     elif o_voto == o_real and o_real is not None: row["Resultado"] = f"{v['Prediccion']} ✅ (+5)"
                     else: row["Resultado"] = f"{v['Prediccion']} ❌"
@@ -486,9 +490,9 @@ with tabs[3]:
                         hit = (p_sel['Tarjetas_real'] > LINEA_TARJETAS and v['Pred_Tarjetas'] == 'Más') or (p_sel['Tarjetas_real'] < LINEA_TARJETAS and v['Pred_Tarjetas'] == 'Menos')
                         row["Tarjetas"] = f"{v['Pred_Tarjetas']} " + ("🟢 (+2)" if hit else "🔴")
                     else: row["Tarjetas"] = v.get('Pred_Tarjetas', '-')
-                        
+                         
                     if p_sel.get('Faltas_real') is not None and v.get('Pred_Faltas'):
-                        hit = (p_sel['Faltas_real'] > LINEA_FALTAS and v['Pred_Faltas'] == 'Más') or (p_sel['Faltas_real'] < LINEA_FALTAS and v['Pred_Faltas'] == 'Menos')
+                        hit = (p_sel['Faltas_real'] > LINEA_FALTAS and v['Pred_Faltas'] == 'Más') or (p_sel['Faltas_real'] < LINEA_FALTAS seaw v['Pred_Faltas'] == 'Menos')
                         row["Faltas"] = f"{v['Pred_Faltas']} " + ("🟢 (+2)" if hit else "🔴")
                     else: row["Faltas"] = v.get('Pred_Faltas', '-')
                 else:
@@ -505,7 +509,7 @@ with tabs[3]:
 
 
 # ================================
-# TAB 4: ESTADÍSTICAS DEL GRUPO (ESTÉTICA DE TABLAS SEPARADAS ORIGINAL)
+# TAB 4: ESTADÍSTICAS DEL GRUPO
 # ================================
 with tabs[4]:
     st.markdown("<h3 style='text-align: center;'><span class='text-gradient'>📊 LÍDERES</span></h3>", unsafe_allow_html=True)
@@ -520,7 +524,7 @@ with tabs[4]:
         "Tarjetas": 0, 
         "Faltas": 0
     } for u in usuarios_ranking}
-    
+     
     partidos_con_resultado = [p for p in partidos_db if p.get('Resultado_real') and '-' in str(p['Resultado_real'])]
     
     for p in partidos_con_resultado:
@@ -588,15 +592,12 @@ with tabs[4]:
 with tabs[5]:
     st.markdown("<h3 style='text-align: center;'><span class='text-gradient'>💬 CHAT</span></h3>", unsafe_allow_html=True)
     
-    # 1. Carga de mensajes (Los más nuevos primero para combinarse con el column-reverse)
     try:
         res_chat = supabase.table("Chat").select("*, Usuarios(Apodo)").order("Fecha_hora", desc=True).limit(50).execute()
         mensajes_chat = res_chat.data
     except Exception as e:
         mensajes_chat = []
 
-    # 2. Contenedor con CSS de inversión nativa (column-reverse)
-    # NOTA: Al usar column-reverse, el scroll se posiciona abajo de forma automática y nativa.
     chat_html = """
     <div style='background-color: #111A24; border: 1px solid #1E2A38; border-radius: 16px; padding: 15px; height: 380px; overflow-y: auto; display: flex; flex-direction: column-reverse; gap: 12px; margin-bottom: 20px;'>
     """
@@ -614,12 +615,10 @@ with tabs[5]:
             except:
                 hora_str = ""
             
-            # Lógica de Admin (Corona dorada)
             nombre_visual = autor
             if autor == ADMIN_NOMBRE:
                 nombre_visual = f"👑 {autor} (Admin)"
             
-            # Burbujas
             if autor == st.session_state["Apodo"]:
                 chat_html += f"<div style='align-self: flex-end; background: linear-gradient(135deg, #00C853, #00E676); color: #060D13; padding: 8px 14px; border-radius: 16px 16px 2px 16px; max-width: 85%; box-shadow: 0 2px 4px rgba(0,0,0,0.2);'><div style='font-size: 0.72em; font-weight: 900; opacity: 0.8; margin-bottom: 2px;'>Tú ({hora_str})</div><div style='font-size: 0.95em; font-weight: 500; line-height: 1.3;'>{texto}</div></div>"
             else:
@@ -628,7 +627,6 @@ with tabs[5]:
     chat_html += "</div>"
     st.markdown(chat_html, unsafe_allow_html=True)
     
-    # 3. Formulario de envío de texto devuelto ABAJO del todo
     with st.form("form_chat_global", clear_on_submit=True, border=False):
         c_txt, c_btn = st.columns([4, 1])
         with c_txt:
@@ -645,6 +643,7 @@ with tabs[5]:
                 st.rerun()
             except Exception as e:
                 st.error("Error al enviar mensaje.")
+
 # ================================
 # TAB 6: REGLAS
 # ================================
@@ -660,21 +659,19 @@ with tabs[6]:
     st.markdown(f"""
     ### 📜 Reglas de la Porra Mundial 2026
     
-    1. **Ganador o Empate (5 Puntos):** Recibirás **5 puntos** si logras acertar qué equipo ganará el encuentro o si el partido terminará en empate. *(Por ejemplo, si apuestas un 2-0 y el partido queda 1-0, te llevas los 5 puntos).*
+    1. **Ganador o Empate (5 Puntos):** Recibirás **5 puntos** si logras acertar qué equipo ganará el encuentro o si el partido terminará en empate.
        
-    2. **Resultado Exacto (20 Puntos):** Recibirás **20 puntos en total** (15 del marcador exacto + 5 del ganador acumulados) si consigues acertar la cantidad exacta de goles que marcará cada equipo (ejemplo: 2-1, 0-0, 3-0).
+    2. **Resultado Exacto (20 Puntos):** Recibirás **20 puntos en total** (15 del marcador exacto + 5 del ganador acumulados) si consigues acertar la cantidad exacta de goles.
     
     3. **Mercados Extra (+2 Puntos c/u):** Cada acierto en Más/Menos sumará 2 puntos extra (máximo 6 extra por partido).
     Las líneas oficiales son:
        * 🚩 Córners: **{LINEA_CORNERS}**
        * 🟨 Tarjetas: **{LINEA_TARJETAS}**
        * 🛑 Faltas: **{LINEA_FALTAS}**
-       
-    4. **Indicador de Racha (🔥):** El jugador o jugadores que hayan sumado la mayor cantidad de puntos en los **últimos 3 partidos cerrados** recibirán el distintivo especial de fuego en la tabla de clasificaciones.
     """)
 
 # ================================================================
-# TAB 7: ADMIN (GESTIÓN EXCLUSIVA DE PUNTOS ELIMINATORIAS Y GRUPOS)
+# TAB 7: ADMIN (GESTIÓN EXCLUSIVA DE PUNTOS ELIMINATORIAS)
 # ================================================================
 if es_admin:
     with tabs[7]:
@@ -697,7 +694,7 @@ if es_admin:
             real_f = c_af.number_input("🛑 Faltas", 0, 60, 0)
             
             if st.button("GUARDAR RESULTADO Y REPARTIR PUNTOS", type="primary"):
-                # 1. Guardamos el resultado real del encuentro en la tabla "Partidos"
+                # 1. Guardamos el resultado real en la tabla "Partidos"
                 supabase.table("Partidos").update({
                     "Resultado_real": gan_str, 
                     "Corners_real": real_c, 
@@ -713,7 +710,7 @@ if es_admin:
                     pts_sum = 0
                     pred = str(v.get('Prediccion', ''))
                     
-                    # --- A) Goles (Exacto 20pts / Ganador o Empate 5pts) ---
+                    # --- A) Goles (Exacto 20pts / Signo 5pts) ---
                     if '-' in pred:
                         if pred == gan_str: 
                             pts_sum += 20
@@ -740,8 +737,7 @@ if es_admin:
                         try:
                             res_user = supabase.table("Usuarios").select("PuntosEliminatorias").eq("Id", v['Id_usuario']).execute().data
                             if res_user:
-                                # Fallback seguro a 0 por si la celda es NULL
-                                pts_act_elim = res_user[0].get('PuntosEliminatorias', 0)
+                                pts_act_elim = res_user[0].get('PuntosEliminatorias', res_user[0].get('puntoseliminatorias', 0))
                                 if pts_act_elim is None: pts_act_elim = 0
                                 
                                 nuevo_total_elim = int(pts_act_elim) + pts_sum
@@ -760,31 +756,3 @@ if es_admin:
             if st.button("ACTIVAR USUARIO"):
                 supabase.table("Usuarios").update({"Estado": "Pagado"}).eq("Id", u_sel['Id']).execute()
                 st.rerun()
-
-        # ================================================================
-        # HERRAMIENTA MANUAL: CONSOLIDAR "PuntosGrupos" DESDE LA INTERFAZ
-        # ================================================================
-        st.write("---")
-        st.subheader("📥 Asignar Puntos de Fase de Grupos (Manual)")
-        st.caption("Utiliza esta herramienta para guardar los puntos guardados del CSV en la columna 'PuntosGrupos' de cada usuario.")
-        
-        res_todos = supabase.table("Usuarios").select("Id, Apodo, PuntosGrupos").execute().data
-        if res_todos:
-            u_puntos_sel = st.selectbox(
-                "Selecciona el usuario a actualizar:", 
-                res_todos, 
-                format_func=lambda x: f"{x['Apodo']} (Puntos actuales en grupos: {x.get('PuntosGrupos', 0)})",
-                key="admin_manual_grupos"
-            )
-            
-            # Formateamos el valor por defecto para evitar errores si el campo es nulo
-            val_defecto = int(u_puntos_sel.get('PuntosGrupos', 0) if u_puntos_sel.get('PuntosGrupos') is not None else 0)
-            pts_a_poner = st.number_input("Puntos obtenidos en Fase de Grupos:", 0, 500, val_defecto)
-            
-            if st.button("FIJAR PUNTOS DE GRUPOS EN LA BASE DE DATOS"):
-                try:
-                    supabase.table("Usuarios").update({"PuntosGrupos": pts_a_poner}).eq("Id", u_puntos_sel['Id']).execute()
-                    st.success(f"¡Columna 'PuntosGrupos' de {u_puntos_sel['Apodo']} actualizada con éxito a {pts_a_poner} pts!")
-                    st.rerun()
-                except Exception as e:
-                    st.error(f"Error al actualizar la celda en Supabase: {e}. Asegúrate de haber creado la columna 'PuntosGrupos' en la tabla Usuarios.")
