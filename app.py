@@ -352,73 +352,69 @@ with tabs[0]:
                                     st.markdown("<p style='font-size:0.7em; color:#8899A6; text-align:center; font-style:italic;'>Los pronósticos completos de tus amigos se revelarán en la pestaña '🔍 Ver Porras' al empezar el partido.</p>", unsafe_allow_html=True)
 
 # ================================================================
-# TAB 2: RANKING CONSOLIDADO (RÁPIDO, BLINDADO Y SIN BUCLES)
+# TAB 2: RANKING TRIPLE (GLOBAL, GRUPOS Y ELIMINATORIAS)
 # ================================================================
 with tabs[1]:
     if not usuarios_ranking: 
         st.info("Sin usuarios para mostrar en el ranking.")
     else:
-        st.markdown("<h3 style='text-align: center; margin-bottom: 20px;'><span class='text-gradient'>🏆 CLASIFICACIÓN GENERAL</span></h3>", unsafe_allow_html=True)
-        st.write("Los puntos obtenidos durante la Fase de Grupos ya han sido consolidados de forma fija en tu perfil.")
+        st.markdown("<h3 style='text-align: center; margin-bottom: 5px;'><span class='text-gradient'>🏆 CLASIFICACIÓN OFICIAL</span></h3>", unsafe_allow_html=True)
+        st.write("Consulta la evolución del torneo en cada una de sus etapas de forma independiente.")
         st.divider()
 
-        # 1. ORDENAR CLASIFICACIÓN DIRECTAMENTE DESDE LA COLUMNA 'Puntos' DE TU BBDD
-        # Obtenemos los valores asumiendo que tu tabla Usuarios tiene "Apodo" y "Puntos"
-        try:
-            ranking_ordenado = sorted(
-                usuarios_ranking, 
-                key=lambda x: int(float(x.get('Puntos', 0) if x.get('Puntos') is not None else 0)), 
-                reverse=True
-            )
-        except Exception as e:
-            st.error(f"Error al ordenar el ranking: {e}")
-            ranking_ordenado = usuarios_ranking
+        # 1. PROCESADO DE DATOS DESDE LAS COLUMNAS FIJAS DE LA TABLA USUARIOS
+        pts_data = []
+        for u in usuarios_ranking:
+            # Extraemos los puntos guardados asegurando que si son NULL o vacíos valgan 0
+            pts_grupos = int(float(u.get('PuntosGrupos', 0) if u.get('PuntosGrupos') is not None else 0))
+            pts_elim = int(float(u.get('PuntosEliminatorias', 0) if u.get('PuntosEliminatorias') is not None else 0))
+            pts_global = pts_grupos + pts_elim  # El global es matemáticamente la suma de ambos
+            
+            pts_data.append({
+                "Jugador (Apodo)": u.get('Apodo') or "Sin Apodo",
+                "Fase de Grupos": pts_grupos,
+                "Fases Eliminatorias": pts_elim,
+                "Global": pts_global
+            })
 
-        if ranking_ordenado:
-            # 🥇 PODIO VISUAL DINÁMICO (Primeros 3 puestos de la columna fija)
-            c1, c2, c3 = st.columns(3)
-            
-            # Primer Puesto
-            p1_name = ranking_ordenado[0].get('Apodo') or "Sin Apodo"
-            p1_pts = ranking_ordenado[0].get('Puntos', 0)
-            with c1: 
-                st.markdown(f"<div class='podium-gold'>🥇<br><b>{p1_name}</b><br>{p1_pts} pts</div>", unsafe_allow_html=True)
-            
-            # Segundo Puesto
-            if len(ranking_ordenado) > 1:
-                p2_name = ranking_ordenado[1].get('Apodo') or "Sin Apodo"
-                p2_pts = ranking_ordenado[1].get('Puntos', 0)
-                with c2: 
-                    st.markdown(f"<div class='podium-silver'>🥈<br><b>{p2_name}</b><br>{p2_pts} pts</div>", unsafe_allow_html=True)
-            
-            # Tercer Puesto
-            if len(ranking_ordenado) > 2:
-                p3_name = ranking_ordenado[2].get('Apodo') or "Sin Apodo"
-                p3_pts = ranking_ordenado[2].get('Puntos', 0)
-                with c3: 
-                    st.markdown(f"<div class='podium-bronze'>🥉<br><b>{p3_name}</b><br>{p3_pts} pts</div>", unsafe_allow_html=True)
-            
-            st.write("---")
-            
-            # 📋 TABLA DETALLADA GENERAL CON DATA FRAME
-            final_rows = []
-            for puesto, u in enumerate(ranking_ordenado, start=1):
-                nombre_visual = u.get('Apodo') or "Sin Apodo"
-                puntos_visual = u.get('Puntos', 0)
+        # 2. CREACIÓN DE LAS 3 SUB-PESTAÑAS EN STREAMLIT
+        ranking_tabs_names = ["Global", "Fase de Grupos", "Fases Eliminatorias"]
+        rk_tabs = st.tabs(ranking_tabs_names)
+        
+        for i, rk_name in enumerate(ranking_tabs_names):
+            with rk_tabs[i]:
+                # Ordenamos la lista según la pestaña en la que se encuentre el usuario
+                ranking_ordenado = sorted(pts_data, key=lambda x: x[rk_name], reverse=True)
                 
-                # Coronamos visualmente al líder en la tabla
-                if puesto == 1:
-                    nombre_visual = f"👑 {nombre_visual} (Líder)"
+                st.markdown(f"<h4 style='text-align: center; margin-bottom: 20px;'>🥇 PODIO: CLASIFICACIÓN {rk_name.upper()}</h4>", unsafe_allow_html=True)
                 
-                final_rows.append({
-                    "Puesto": f"Nº {puesto}",
-                    "Jugador (Apodo)": nombre_visual,
-                    "Puntos Totales": f"{puntos_visual} pts"
-                })
+                # 🥇 PODIO VISUAL DINÁMICO
+                c1, c2, c3 = st.columns(3)
+                with c1: 
+                    st.markdown(f"<div class='podium-gold'>🥇<br><b>{ranking_ordenado[0]['Jugador (Apodo)']}</b><br>{ranking_ordenado[0][rk_name]} pts</div>", unsafe_allow_html=True)
+                if len(ranking_ordenado) > 1:
+                    with c2: 
+                        st.markdown(f"<div class='podium-silver'>🥈<br><b>{ranking_ordenado[1]['Jugador (Apodo)']}</b><br>{ranking_ordenado[1][rk_name]} pts</div>", unsafe_allow_html=True)
+                if len(ranking_ordenado) > 2:
+                    with c3: 
+                        st.markdown(f"<div class='podium-bronze'>🥉<br><b>{ranking_ordenado[2]['Jugador (Apodo)']}</b><br>{ranking_ordenado[2][rk_name]} pts</div>", unsafe_allow_html=True)
                 
-            st.dataframe(pd.DataFrame(final_rows), use_container_width=True, hide_index=True)
-        else:
-            st.info("Aún no hay registros de puntos en la base de datos.")
+                st.write("---")
+                
+                # 📋 TABLA DETALLADA CON POSICIONES
+                final_rows = []
+                for puesto, u in enumerate(ranking_ordenado, start=1):
+                    nombre_visual = u['Jugador (Apodo)']
+                    if puesto == 1 and u[rk_name] > 0:
+                        nombre_visual = f"👑 {nombre_visual} (Líder)"
+                        
+                    final_rows.append({
+                        "Puesto": f"Nº {puesto}",
+                        "Jugador (Apodo)": nombre_visual,
+                        "Puntos en esta Fase": f"{u[rk_name]} pts",
+                        "Puntos Globales": f"{u['Global']} pts"
+                    })
+                st.dataframe(pd.DataFrame(final_rows), use_container_width=True, hide_index=True)
 
 # ================================================================
 # TAB 6: CUADRO DE ELIMINATORIAS (MÉTODO DIRECTO POR IMAGEN)
