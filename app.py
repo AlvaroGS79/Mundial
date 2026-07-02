@@ -238,7 +238,7 @@ if es_admin: tabs_labels.append("🛠️ Admin")
 tabs = st.tabs(tabs_labels)
 
 # ================================
-# TAB 1: PARTIDOS
+# TAB 1: PARTIDOS (CON MODIFICACIÓN DE PORRAS HASTA 1 MIN ANTES)
 # ================================
 with tabs[0]:
     if not partidos_raw: st.info("Cargando calendario...")
@@ -259,7 +259,12 @@ with tabs[0]:
                         st.markdown("<hr style='margin: 15px 0px; border: none; border-top: 1px solid #1E2A38;'>", unsafe_allow_html=True)
                         
                         ha_votado = p['Id'] in votos_usuario
+                        
+                        # Calculamos si falta más de 1 minuto para el inicio del partido
+                        tiempo_limite = fecha_p - timedelta(minutes=1)
+                        puede_editar_o_votar = hora_actual_espana < tiempo_limite
 
+                        # CASO A: PARTIDO CON RESULTADO REAL Y CONCLUIDO
                         if p.get('Resultado_real'):
                             res_real = p['Resultado_real']
                             out_real = get_outcome(res_real)
@@ -267,7 +272,6 @@ with tabs[0]:
                                 v_u = votos_usuario[p['Id']]
                                 mi_voto = v_u['Prediccion']
                                 out_voto = get_outcome(mi_voto)
-                          
                                 pts_totales_partido = 0
                                 msjs_extras = []
                           
@@ -305,11 +309,75 @@ with tabs[0]:
                                     st.error(f"❌ **0 puntos obtenidos:** ({string_resumen})")
                             else: st.info(f"Finalizado: {res_real}")
                         
+                        # CASO B: EL USUARIO YA VOTÓ Y EL PARTIDO ESTÁ ABIERTO O CERRADO
                         elif ha_votado:
                             v = votos_usuario[p['Id']]
-                            st.info(f"✅ Tu pronóstico: **{v['Prediccion']}** | 🚩 {v.get('Pred_Corners','-')} | 🟨 {v.get('Pred_Tarjetas','-')} | 🩼 {v.get('Pred_Faltas','-')}")
+                            
+                            # Si se pulsa el botón de modificar (y aún se puede), activamos un estado temporal de edición
+                            modo_edicion = st.session_state.get(f"edit_{p['Id']}", False)
+                            
+                            if puede_editar_o_votar and modo_edicion:
+                                st.markdown("<p style='text-align:center; font-size: 0.9em; color:#00E676; margin-bottom:5px; font-weight:bold;'>📝 Modificando tu pronóstico:</p>", unsafe_allow_html=True)
+                                
+                                # Extraemos los valores previos para ponerlos por defecto en los inputs
+                                try:
+                                    g_l_def, g_v_def = map(int, v['Prediccion'].split('-'))
+                                except:
+                                    g_l_def, g_v_def = 0, 0
+                                    
+                                c1, c2, c3 = st.columns([1, 1.5, 1])
+                                with c2:
+                                    sub_c1, sub_c2, sub_c3 = st.columns([2, 1, 2])
+                                    with sub_c1: g_loc = st.number_input("L", min_value=0, max_value=20, step=1, value=g_l_def, key=f"gl_{p['Id']}", label_visibility="collapsed")
+                                    with sub_c2: st.markdown("<div style='text-align:center; padding-top:5px; font-weight:bold;'>-</div>", unsafe_allow_html=True)
+                                    with sub_c3: g_vis = st.number_input("V", min_value=0, max_value=20, step=1, value=g_v_def, key=f"gv_{p['Id']}", label_visibility="collapsed")
+                                
+                                st.markdown(f"<p style='text-align:center; font-size: 0.9em; color:#8899A6; margin-top:15px; margin-bottom:5px; font-weight:bold;'>2. Mercados Extra (+2 pts c/u)</p>", unsafe_allow_html=True)
+                                ex1, ex2, ex3 = st.columns(3)
+                                
+                                def_c = v.get('Pred_Corners') if v.get('Pred_Corners') else "-"
+                                def_t = v.get('Pred_Tarjetas') if v.get('Pred_Tarjetas') else "-"
+                                def_f = v.get('Pred_Faltas') if v.get('Pred_Faltas') else "-"
+                                
+                                lista_opciones = ["-", "Más", "Menos"]
+                                pred_c = ex1.selectbox(f"🚩 Córners (+{LINEA_CORNERS})", lista_opciones, index=lista_opciones.index(def_c) if def_c in lista_opciones else 0, key=f"c_{p['Id']}")
+                                pred_t = ex2.selectbox(f"🟨 Tarjetas (+{LINEA_TARJETAS})", lista_opciones, index=lista_opciones.index(def_t) if def_t in lista_opciones else 0, key=f"t_{p['Id']}")
+                                pred_f = ex3.selectbox(f"🩼 Faltas (+{LINEA_FALTAS})", lista_opciones, index=lista_opciones.index(def_f) if def_f in lista_opciones else 0, key=f"f_{p['Id']}")
+
+                                col_b1, col_b2 = st.columns(2)
+                                with col_b1:
+                                    if st.button("Guardar Cambios", key=f"save_{p['Id']}", use_container_width=True):
+                                        val_bd = f"{g_loc}-{g_vis}"
+                                        c_bd = pred_c if pred_c != "-" else None
+                                        t_bd = pred_t if pred_t != "-" else None
+                                        f_bd = pred_f if pred_f != "-" else None
+                                        
+                                        supabase.table("Porras").upsert({
+                                            "Id_usuario": st.session_state["Id_usuario"], 
+                                            "Id_partido": p["Id"], 
+                                            "Prediccion": val_bd,
+                                            "Pred_Corners": c_bd,
+                                            "Pred_Tarjetas": t_bd,
+                                            "Pred_Faltas": f_bd
+                                        }).execute()
+                                        st.session_state[f"edit_{p['Id']}"] = False
+                                        st.rerun()
+                                with col_b2:
+                                    if st.button("Cancelar", key=f"cancel_{p['Id']}", use_container_width=True):
+                                        st.session_state[f"edit_{p['Id']}"] = False
+                                        st.rerun()
+                            else:
+                                # Mostrar pronóstico enviado actual
+                                st.info(f"✅ Tu pronóstico: **{v['Prediccion']}** | 🚩 {v.get('Pred_Corners','-')} | 🟨 {v.get('Pred_Tarjetas','-')} | 🩼 {v.get('Pred_Faltas','-')}")
+                                
+                                # Si queda más de 1 minuto, aparece de forma dinámica el botón de modificar
+                                if puede_editar_o_votar:
+                                    if st.button("✏️ Modificar Pronóstico", key=f"btn_edit_{p['Id']}", use_container_width=True):
+                                        st.session_state[f"edit_{p['Id']}"] = True
+                                        st.rerun()
                         
-                        elif fecha_p > hora_actual_espana:
+                        # CASO C: EL USUARIO NO HA VOTÓ Y EL PARTIDO SIGUE ABIERTO
+                        elif puede_editar_o_votar:
                             st.markdown("<p style='text-align:center; font-size: 0.9em; color:#8899A6; margin-bottom:5px; font-weight:bold;'>1. Marcador Exacto</p>", unsafe_allow_html=True)
                             c1, c2, c3 = st.columns([1, 1.5, 1])
                             with c2:
@@ -339,7 +407,8 @@ with tabs[0]:
                                     "Pred_Faltas": f_bd
                                 }).execute()
                                 st.rerun()
-                        else: st.warning("🔒 Cerrado.")
+                        else: 
+                            st.warning("🔒 Cerrado.")
 
                         if ha_votado or p.get('Resultado_real'):
                             votos_p = [v for v in todas_porras if v['Id_partido'] == p['Id'] and get_outcome(v['Prediccion']) and dict_nombres.get(v['Id_usuario']) != ADMIN_NOMBRE]
