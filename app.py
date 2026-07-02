@@ -359,16 +359,16 @@ with tabs[1]:
         st.info("Sin usuarios para mostrar en el ranking.")
     else:
         st.markdown("<h3 style='text-align: center; margin-bottom: 5px;'><span class='text-gradient'>🏆 CLASIFICACIÓN OFICIAL</span></h3>", unsafe_allow_html=True)
-        st.write("Consulta la evolución del torneo en cada una de sus etapas de forma independiente.")
+        st.write("Sigue la evolución del torneo y comprueba quién domina cada etapa de la porra.")
         st.divider()
 
-        # 1. PROCESADO DE DATOS DESDE LAS COLUMNAS FIJAS DE LA TABLA USUARIOS
+        # 1. PROCESADO DE DATOS DESDE TUS NUEVAS COLUMNAS DE SUPABASE
         pts_data = []
         for u in usuarios_ranking:
-            # Extraemos los puntos guardados asegurando que si son NULL o vacíos valgan 0
+            # Extraemos los valores reales de tus columnas asegurando un fallback a 0 si hay algún NULL
             pts_grupos = int(float(u.get('PuntosGrupos', 0) if u.get('PuntosGrupos') is not None else 0))
             pts_elim = int(float(u.get('PuntosEliminatorias', 0) if u.get('PuntosEliminatorias') is not None else 0))
-            pts_global = pts_grupos + pts_elim  # El global es matemáticamente la suma de ambos
+            pts_global = pts_grupos + pts_elim  # Suma matemática en vivo para el ranking general
             
             pts_data.append({
                 "Jugador (Apodo)": u.get('Apodo') or "Sin Apodo",
@@ -377,13 +377,13 @@ with tabs[1]:
                 "Global": pts_global
             })
 
-        # 2. CREACIÓN DE LAS 3 SUB-PESTAÑAS EN STREAMLIT
+        # 2. CREACIÓN DE LAS 3 SUB-PESTAÑAS DE SELECCIÓN
         ranking_tabs_names = ["Global", "Fase de Grupos", "Fases Eliminatorias"]
         rk_tabs = st.tabs(ranking_tabs_names)
         
         for i, rk_name in enumerate(ranking_tabs_names):
             with rk_tabs[i]:
-                # Ordenamos la lista según la pestaña en la que se encuentre el usuario
+                # Ordenamos la lista de usuarios según los puntos de la pestaña activa
                 ranking_ordenado = sorted(pts_data, key=lambda x: x[rk_name], reverse=True)
                 
                 st.markdown(f"<h4 style='text-align: center; margin-bottom: 20px;'>🥇 PODIO: CLASIFICACIÓN {rk_name.upper()}</h4>", unsafe_allow_html=True)
@@ -401,10 +401,12 @@ with tabs[1]:
                 
                 st.write("---")
                 
-                # 📋 TABLA DETALLADA CON POSICIONES
+                # 📋 TABLA DETALLADA CON POSICIONES CONSECUTIVAS
                 final_rows = []
                 for puesto, u in enumerate(ranking_ordenado, start=1):
                     nombre_visual = u['Jugador (Apodo)']
+                    
+                    # Distintivo estético para el líder actual de la pestaña
                     if puesto == 1 and u[rk_name] > 0:
                         nombre_visual = f"👑 {nombre_visual} (Líder)"
                         
@@ -414,6 +416,8 @@ with tabs[1]:
                         "Puntos en esta Fase": f"{u[rk_name]} pts",
                         "Puntos Globales": f"{u['Global']} pts"
                     })
+                
+                # Mostramos el DataFrame nativo y limpio de Streamlit
                 st.dataframe(pd.DataFrame(final_rows), use_container_width=True, hide_index=True)
 
 # ================================================================
