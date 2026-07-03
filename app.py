@@ -303,7 +303,7 @@ with tabs[0]:
                                     else: msjs_extras.append("❌ Tarjetas")
                                    
                                 if p.get('Faltas_real') is not None and v_u.get('Pred_Faltas'):
-                                    if (p['Faltas_real'] > LINEA_FALTAS and v_u['Pred_Faltas'] == 'Más') or (p['Faltas_real'] < LINEA_FALTAS and v['Pred_Faltas'] == 'Menos'):
+                                    if (p['Faltas_real'] > LINEA_FALTAS and v_u['Pred_Faltas'] == 'Más') or (p['Faltas_real'] < LINEA_FALTAS and v_u['Pred_Faltas'] == 'Menos'):
                                         pts_totales_partido += 2
                                         msjs_extras.append("🩼 Faltas (+2)")
                                     else: msjs_extras.append("❌ Faltas")
